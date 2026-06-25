@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <radialGradient id="body" cx="38%" cy="35%" r="55%">
+      <stop offset="0%" stop-color="#ffccc0"/>
+      <stop offset="18%" stop-color="#ff9080"/>
+      <stop offset="38%" stop-color="#ff6347"/>
+      <stop offset="60%" stop-color="#cd4f39"/>
+      <stop offset="80%" stop-color="#8b2e1a"/>
+      <stop offset="100%" stop-color="#3a120a"/>
+    </radialGradient>
+    <radialGradient id="atmo" cx="50%" cy="50%" r="50%">
+      <stop offset="85%" stop-color="transparent"/>
+      <stop offset="95%" stop-color="rgba(255,99,71,0.1)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+    <clipPath id="c"><circle cx="100" cy="100" r="58"/></clipPath>
+    <filter id="glow"><feGaussianBlur stdDeviation="5"/></filter>
+  </defs>
+  <!-- 大气光晕 -->
+  <circle cx="100" cy="100" r="64" fill="rgba(255,99,71,0.06)" filter="url(#glow)"/>
+  <!-- 星球本体 -->
+  <circle cx="100" cy="100" r="58" fill="url(#body)"/>
+  <!-- 表面暗斑/陨石坑 -->
+  <g clip-path="url(#c)" opacity="0.6">
+    <circle cx="78" cy="78" r="10" fill="rgba(0,0,0,0.1)"/>
+    <circle cx="120" cy="92" r="7" fill="rgba(0,0,0,0.08)"/>
+    <circle cx="95" cy="118" r="13" fill="rgba(0,0,0,0.07)"/>
+    <circle cx="112" cy="72" r="5" fill="rgba(0,0,0,0.06)"/>
+    <ellipse cx="65" cy="108" rx="8" ry="5" fill="rgba(0,0,0,0.05)"/>
+  </g>
+  <!-- 极冠 -->
+  <ellipse cx="100" cy="46" rx="22" ry="7" fill="rgba(255,230,220,0.25)" clip-path="url(#c)"/>
+  <ellipse cx="100" cy="156" rx="18" ry="5" fill="rgba(255,230,220,0.15)" clip-path="url(#c)"/>
+  <!-- 高光 -->
+  <ellipse cx="80" cy="74" rx="14" ry="10" fill="rgba(255,255,255,0.06)" clip-path="url(#c)"/>
+  <!-- 大气层 -->
+  <circle cx="100" cy="100" r="59" fill="url(#atmo)"/>
+</svg>

@@ -1,0 +1,11 @@
+# 编译产物
+*.exe
+
+# 运行时数据
+data/
+logs/
+.env
+
+# IDE
+.idea/
+.vscode/

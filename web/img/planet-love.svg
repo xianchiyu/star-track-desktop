@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <radialGradient id="body" cx="38%" cy="35%" r="55%">
+      <stop offset="0%" stop-color="#ffe0ee"/>
+      <stop offset="18%" stop-color="#ffb0d0"/>
+      <stop offset="40%" stop-color="#ff69b4"/>
+      <stop offset="65%" stop-color="#cd5c91"/>
+      <stop offset="85%" stop-color="#7a2f55"/>
+      <stop offset="100%" stop-color="#2d1020"/>
+    </radialGradient>
+    <radialGradient id="atmo" cx="50%" cy="50%" r="50%">
+      <stop offset="85%" stop-color="transparent"/>
+      <stop offset="95%" stop-color="rgba(255,105,180,0.12)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+    <clipPath id="c"><circle cx="100" cy="100" r="58"/></clipPath>
+    <filter id="glow"><feGaussianBlur stdDeviation="6"/></filter>
+  </defs>
+  <circle cx="100" cy="100" r="66" fill="rgba(255,105,180,0.06)" filter="url(#glow)"/>
+  <circle cx="100" cy="100" r="58" fill="url(#body)"/>
+  <g clip-path="url(#c)" opacity="0.4">
+    <ellipse cx="80" cy="85" rx="25" ry="5" fill="rgba(255,255,255,0.08)"/>
+    <ellipse cx="115" cy="100" rx="20" ry="4" fill="rgba(255,255,255,0.06)"/>
+    <ellipse cx="90" cy="118" rx="22" ry="5" fill="rgba(255,200,220,0.1)"/>
+  </g>
+  <ellipse cx="80" cy="74" rx="14" ry="10" fill="rgba(255,255,255,0.06)" clip-path="url(#c)"/>
+  <circle cx="100" cy="100" r="59" fill="url(#atmo)"/>
+</svg>

@@ -1,0 +1,40 @@
+name: 编译发布
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: 下载依赖
+        run: go mod tidy
+        working-directory: star-track-desktop
+
+      - name: 编译
+        run: go build -ldflags="-s -w" -o star-track-desktop.exe
+        working-directory: star-track-desktop
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 星轨桌面版 ${{ github.ref_name }}
+          body: |
+            ## 星轨 · 心事星空 桌面版 ${{ github.ref_name }}
+
+            下载 `star-track-desktop.exe`，双击运行即可安装使用。
+
+            ### 更新说明
+            - 详见仓库提交记录。
+          files: star-track-desktop/star-track-desktop.exe
