@@ -493,7 +493,7 @@ type Todo struct {
 }
 
 func handleGetTodos(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query(`SELECT id, title, task_type, parent_id, sort_order, progress, start_date, due_date, completed, completed_at, created_at FROM todos WHERE completed = 0 ORDER BY sort_order ASC, created_at DESC`)
+	rows, err := db.Query(`SELECT id, title, task_type, parent_id, sort_order, progress, start_date, due_date, completed, completed_at, created_at FROM todos WHERE completed = 0 ORDER BY sort_order ASC, created_at ASC`)
 	if err != nil {
 		jsonError(w, "查询失败", http.StatusInternalServerError)
 		return
