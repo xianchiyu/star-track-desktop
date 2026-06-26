@@ -7,7 +7,7 @@
     <title>星轨 · 心事星空</title>
     <meta name="csrf-token" content="" id="csrfMeta">
     <link href="bootstrap-icons.min.css" rel="stylesheet">
-    <link href="css/style.css?v=21" rel="stylesheet">
+    <link href="css/style.css?v=24" rel="stylesheet">
 </head>
 <body>
     <!-- 星空背景 Canvas -->

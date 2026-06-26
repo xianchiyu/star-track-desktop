@@ -26,7 +26,7 @@ let currentTheme = 'dark';
 // schedule: { hour: [todoId, ...], ... }
 let schedule = {};
 const SCHEDULE_START = 8;
-const SCHEDULE_END = 18;
+const SCHEDULE_END = 21;
 
 function applyTheme(theme) {
     currentTheme = theme;
@@ -58,17 +58,6 @@ function toggleTheme() {
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
-    // 检查是否已登录：从 localStorage 加载 token
-    const savedToken = localStorage.getItem('star-track-token');
-    if (savedToken) {
-        const meta = document.querySelector('meta[name="csrf-token"]');
-        if (meta) meta.content = savedToken;
-    } else {
-        // 没有 token，跳转登录页
-        window.location.href = 'login.php';
-        return;
-    }
-
     starfield = new StarField(document.getElementById('starfield'));
     const now = new Date();
     calYear = now.getFullYear();
@@ -90,11 +79,8 @@ async function init() {
 
 // 统一 API 响应处理：401 时跳转登录
 async function apiFetch(url, options = {}) {
-    // CSRF token：从 localStorage 或 meta 标签中获取
-    let csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-    if (!csrfToken) {
-        csrfToken = localStorage.getItem('star-track-token');
-    }
+    // CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
     if (csrfToken && (!options.method || options.method.toUpperCase() !== 'GET')) {
         options.headers = options.headers || {};
         if (options.headers instanceof Headers) {
@@ -105,6 +91,7 @@ async function apiFetch(url, options = {}) {
     }
     const res = await fetch(url, options);
     if (res.status === 401) {
+        localStorage.removeItem('star-track-token');
         window.location.href = 'login.php';
         throw new Error('未登录');
     }
@@ -204,7 +191,9 @@ function renderTimeline() {
         // 时间刻度
         const time = document.createElement('div');
         time.className = 'timeline-time';
-        time.textContent = h + ':00';
+        const displayHour = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+        const suffix = h < 12 ? ' am' : ' pm';
+        time.textContent = displayHour + ':00' + suffix;
         slot.appendChild(time);
 
         // 放置区
@@ -422,14 +411,14 @@ function renderConstellations(allTodos, today) {
         globalIdx++;
     });
 
-    // 简单碰撞回避：最小间距 12%
+    // 碰撞回避：最小间距 22%（考虑标题文字高度）
     for (let i = 0; i < allPositions.length; i++) {
         for (let j = i + 1; j < allPositions.length; j++) {
             const dx = allPositions[i].x - allPositions[j].x;
             const dy = allPositions[i].y - allPositions[j].y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 12) {
-                const push = (12 - dist) / 2;
+            if (dist < 22) {
+                const push = (22 - dist) / 2;
                 const nx = dx / Math.max(dist, 0.1);
                 const ny = dy / Math.max(dist, 0.1);
                 allPositions[i].x = Math.max(8, Math.min(92, allPositions[i].x + nx * push));
@@ -1405,13 +1394,15 @@ function bindEvents() {
 
     // 登出
     document.getElementById('btnLogout').addEventListener('click', async () => {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || localStorage.getItem('star-track-token');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
         await fetch('api/auth.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfToken || ''},
             body: 'action=logout'
         });
+        // 清除 token
         localStorage.removeItem('star-track-token');
+        document.querySelector('meta[name="csrf-token"]').content = '';
         window.location.href = 'login.php';
     });
 
@@ -1752,3 +1743,54 @@ function findTodoById(id, list) {
     }
     return null;
 }
+
+// ===== 左右分区拖拽 =====
+(function initZoneResizer() {
+    const resizer = document.getElementById('zone-resizer');
+    const root = document.documentElement;
+    if (!resizer) return;
+
+    // 恢复记忆比例
+    const saved = localStorage.getItem('star-todo-zone-ratio');
+    if (saved) {
+        const pct = Math.max(20, Math.min(75, parseFloat(saved)));
+        root.style.setProperty('--today-zone-width', pct + '%');
+        root.style.setProperty('--constellation-zone-width', (100 - pct) + '%');
+        resizer.style.left = pct + '%';
+    }
+
+    let dragging = false;
+
+    function onMove(e) {
+        if (!dragging) return;
+        const rect = document.getElementById('today-view').getBoundingClientRect();
+        let pct = ((e.clientX - rect.left) / rect.width) * 100;
+        pct = Math.max(20, Math.min(75, pct));
+        root.style.setProperty('--today-zone-width', pct + '%');
+        root.style.setProperty('--constellation-zone-width', (100 - pct) + '%');
+        resizer.style.left = pct + '%';
+    }
+
+    function onUp() {
+        if (!dragging) return;
+        dragging = false;
+        resizer.classList.remove('active');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        // 记忆比例
+        const pct = parseFloat(resizer.style.left);
+        localStorage.setItem('star-todo-zone-ratio', pct);
+    }
+
+    resizer.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        dragging = true;
+        resizer.classList.add('active');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+})();

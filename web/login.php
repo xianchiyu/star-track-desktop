@@ -172,6 +172,12 @@
             return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
+        // 如果已有 token，直接进入主界面
+        if (localStorage.getItem('star-track-token')) {
+            window.location.href = 'index.php';
+            return;
+        }
+
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btnLogin');
