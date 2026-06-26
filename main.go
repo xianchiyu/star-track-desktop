@@ -109,13 +109,7 @@ func isInstalled() bool {
 
 // 在桌面创建快捷方式
 func createDesktopShortcut(targetPath string) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	desktop := filepath.Join(home, "Desktop")
 	shortcutName := "星轨 · 心事星空"
-	exeName := filepath.Base(targetPath)
 
 	psScript := fmt.Sprintf(`$ws = New-Object -ComObject WScript.Shell
 $sc = $ws.CreateShortcut([Environment]::GetFolderPath("Desktop") + "\%s.lnk")
