@@ -1331,6 +1331,18 @@ func handlePage(w http.ResponseWriter, r *http.Request) {
 		contentType = "application/javascript"
 	} else if strings.HasSuffix(path, ".svg") {
 		contentType = "image/svg+xml"
+	} else if strings.HasSuffix(path, ".woff2") {
+		contentType = "font/woff2"
+	} else if strings.HasSuffix(path, ".woff") {
+		contentType = "font/woff"
+	} else if strings.HasSuffix(path, ".png") {
+		contentType = "image/png"
+	} else if strings.HasSuffix(path, ".jpg") || strings.HasSuffix(path, ".jpeg") {
+		contentType = "image/jpeg"
+	} else if strings.HasSuffix(path, ".gif") {
+		contentType = "image/gif"
+	} else if strings.HasSuffix(path, ".ico") {
+		contentType = "image/x-icon"
 	}
 
 	w.Header().Set("Content-Type", contentType)

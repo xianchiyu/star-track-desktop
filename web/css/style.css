@@ -993,6 +993,8 @@ html.theme-light .constellation-node-title {
     transition: all 0.2s ease;
 }
 
+
+
 .date-input::-webkit-calendar-picker-indicator {
     filter: invert(var(--cal-pick-invert));
     cursor: pointer;
