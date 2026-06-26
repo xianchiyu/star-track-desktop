@@ -58,6 +58,13 @@ function toggleTheme() {
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
+    // 从 localStorage 恢复 token 到 meta 标签（login 跳转后需要）
+    const savedToken = localStorage.getItem('star-track-token');
+    if (savedToken) {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta && !meta.content) meta.content = savedToken;
+    }
+
     starfield = new StarField(document.getElementById('starfield'));
     const now = new Date();
     calYear = now.getFullYear();
@@ -79,9 +86,15 @@ async function init() {
 
 // 统一 API 响应处理：401 时跳转登录
 async function apiFetch(url, options = {}) {
-    // CSRF token
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-    if (csrfToken && (!options.method || options.method.toUpperCase() !== 'GET')) {
+    // 从 meta 取 token（优先），回退到 localStorage
+    let csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (!csrfToken) {
+        csrfToken = localStorage.getItem('star-track-token');
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta && csrfToken) meta.content = csrfToken;
+    }
+    // 所有请求都带 X-CSRF-Token header（auth 需要）
+    if (csrfToken) {
         options.headers = options.headers || {};
         if (options.headers instanceof Headers) {
             options.headers.set('X-CSRF-Token', csrfToken);

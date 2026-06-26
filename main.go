@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"embed"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -19,10 +20,34 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
+	"unicode/utf16"
+	"unsafe"
 
 	_ "modernc.org/sqlite"
 )
+
+var (
+	kernel32            = syscall.NewLazyDLL("kernel32.dll")
+	user32              = syscall.NewLazyDLL("user32.dll")
+	procMessageBoxW     = user32.NewProc("MessageBoxW")
+)
+
+const (
+	MB_OK                = 0
+	MB_ICONINFORMATION   = 64
+	MB_ICONERROR         = 16
+	MB_ICONQUESTION      = 32
+	MB_SETFOREGROUND     = 0x00010000
+)
+
+func msgBox(title, text string, flags uintptr) int {
+	titlePtr, _ := syscall.UTF16PtrFromString(title)
+	textPtr, _ := syscall.UTF16PtrFromString(text)
+	ret, _, _ := procMessageBoxW.Call(0, uintptr(unsafe.Pointer(textPtr)), uintptr(unsafe.Pointer(titlePtr)), flags)
+	return int(ret)
+}
 
 // ---------------------------------------------------------------------------
 // embed 前端静态文件
@@ -63,7 +88,6 @@ var cfg = Config{
 // ---------------------------------------------------------------------------
 
 func pickFolderViaPowerShell(title string) (string, bool) {
-	tempScript := filepath.Join(os.TempDir(), "star-track-picker.ps1")
 
 	psScript := fmt.Sprintf(`Add-Type -AssemblyName System.Windows.Forms
 $folder = New-Object System.Windows.Forms.FolderBrowserDialog
@@ -78,10 +102,11 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 }
 `, title)
 
-	os.WriteFile(tempScript, []byte(psScript), 0644)
-	defer os.Remove(tempScript)
+	// 用 -EncodedCommand 方式执行，避免中文编码问题
+	encodedBytes := utf16.Encode([]rune(psScript))
+	encoded := base64.StdEncoding.EncodeToString(uint16ToBytes(encodedBytes))
 
-	cmd := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", tempScript)
+	cmd := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", false
@@ -91,6 +116,16 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 		return "", false
 	}
 	return path, true
+}
+
+// uint16ToBytes 将 []uint16 转为 []byte（小端序）
+func uint16ToBytes(s []uint16) []byte {
+	b := make([]byte, len(s)*2)
+	for i, v := range s {
+		b[i*2] = byte(v)
+		b[i*2+1] = byte(v >> 8)
+	}
+	return b
 }
 
 // ---------------------------------------------------------------------------
@@ -119,29 +154,27 @@ $sc.Description = "星轨 · 心事星空 - 个人待办系统"
 $sc.Save()
 `, shortcutName, targetPath, filepath.Dir(targetPath))
 
-	tempScript := filepath.Join(os.TempDir(), "star-track-shortcut.ps1")
-	os.WriteFile(tempScript, []byte(psScript), 0644)
-	defer os.Remove(tempScript)
+	encodedBytes := utf16.Encode([]rune(psScript))
+	encoded := base64.StdEncoding.EncodeToString(uint16ToBytes(encodedBytes))
 
-	cmd := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", tempScript)
+	cmd := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded)
 	return cmd.Run()
 }
 
 // 执行安装流程
 func runInstallation() bool {
-	fmt.Println("\n  ✦ 欢迎使用 星轨 · 心事星空 ✦")
-	fmt.Println("  ⚡ 首次启动，需要先选择数据存放位置\n")
+	msgBox("星轨 · 心事星空", "✦ 欢迎使用 星轨 · 心事星空 ✦\n\n首次启动，需要先选择数据存放位置。", MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
 
 	picked, ok := pickFolderViaPowerShell("选择数据存放位置")
 	if !ok {
-		fmt.Println("  ❌ 未选择文件夹，安装已取消\n")
+		msgBox("星轨 · 心事星空", "未选择文件夹，安装已取消。", MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
 		return false
 	}
 
 	// 验证目录
 	info, err := os.Stat(picked)
 	if err != nil || !info.IsDir() {
-		fmt.Printf("  ❌ 所选目录不可用：%s\n", picked)
+		msgBox("安装错误", fmt.Sprintf("所选目录不可用：%s", picked), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
 		return false
 	}
 
@@ -154,20 +187,20 @@ func runInstallation() bool {
 	if exePath != destExe {
 		srcData, err := os.ReadFile(exePath)
 		if err != nil {
-			fmt.Printf("  ❌ 复制 exe 失败: %v\n", err)
+			msgBox("安装错误", fmt.Sprintf("复制 exe 失败: %v", err), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
 			return false
 		}
 		if err := os.WriteFile(destExe, srcData, 0755); err != nil {
-			fmt.Printf("  ❌ 写入 exe 失败: %v\n", err)
+			msgBox("安装错误", fmt.Sprintf("写入 exe 失败: %v", err), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
 			return false
 		}
 	}
 
 	// 在桌面创建快捷方式
 	if err := createDesktopShortcut(destExe); err != nil {
-		fmt.Printf("  ⚠️ 创建快捷方式失败: %v\n", err)
+		msgBox("安装提示", fmt.Sprintf("创建快捷方式失败: %v\n\n仍可手动运行 %s", err, destExe), MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
 	} else {
-		fmt.Println("  ✅ 已创建桌面快捷方式")
+		msgBox("安装提示", "已创建桌面快捷方式。", MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
 	}
 
 	// 创建 .env
@@ -177,10 +210,14 @@ AUTH_PASS=%s
 `, authUser, authPass)
 	os.WriteFile(filepath.Join(destDir, ".env"), []byte(envContent), 0644)
 
-	fmt.Printf("\n  ✅ 安装完成！\n")
-	fmt.Printf("  📁 数据目录: %s\n", destDir)
-	fmt.Printf("  🖱️  请使用桌面快捷方式启动\n\n")
-
+	// 启动目标目录的新 exe
+	cmd := exec.Command(destExe)
+	if err := cmd.Start(); err != nil {
+		msgBox("启动错误", fmt.Sprintf("✅ 安装成功！\n\n📁 数据目录: %s\n\n但自动启动失败: %v\n\n请手动运行: %s", destDir, err, destExe), MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
+		return true
+	}
+	// 新进程已启动，当前进程退出
+	os.Exit(0)
 	return true
 }
 
@@ -1355,12 +1392,10 @@ func main() {
 	// ── 判断是否已安装到数据目录 ──
 	if !isInstalled() {
 		if !runInstallation() {
-			fmt.Println("按任意键退出...")
-			fmt.Scanln()
 			os.Exit(0)
 		}
-		fmt.Println("安装完成，即将启动服务...")
-		time.Sleep(1 * time.Second)
+		// runInstallation 内部已启动新 exe 并调用 os.Exit(0)
+		return
 	}
 
 	// ── 已安装：exe 所在目录就是数据目录 ──
@@ -1436,23 +1471,28 @@ AUTH_PASS=%s
 
 	listener, err := net.Listen("tcp", cfg.ListenAddr)
 	if err != nil {
-		log.Fatalf("监听端口失败: %v", err)
+		msgBox("星轨 · 心事星空", fmt.Sprintf("端口 %s 启动失败，请检查是否已运行。\n\n错误: %v", cfg.ListenAddr, err), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
+		os.Exit(1)
 	}
 
 	actualAddr := listener.Addr().String()
 	log.Printf("星轨服务启动于 http://%s", actualAddr)
-	fmt.Printf("\n  ✦ 星轨 · 心事星空 ✦\n")
-	fmt.Printf("  ─────────────────────\n")
-	fmt.Printf("  服务地址: http://%s\n", actualAddr)
-	fmt.Printf("  数据目录: %s\n", cfg.DataDir)
-	fmt.Printf("  ─────────────────────\n\n")
 
+	// HTTP server 在后台 goroutine 运行
+	go func() {
+		if err := http.Serve(listener, mux); err != nil {
+			log.Printf("服务错误: %v", err)
+			msgBox("星轨 · 心事星空", fmt.Sprintf("服务错误: %v", err), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
+			os.Exit(1)
+		}
+	}()
+
+	// 打开浏览器
 	if cfg.OpenBrowser {
 		time.Sleep(500 * time.Millisecond)
 		openBrowser("http://" + actualAddr)
 	}
 
-	if err := http.Serve(listener, mux); err != nil {
-		log.Fatalf("服务错误: %v", err)
-	}
+	// 系统托盘（阻塞，直到用户选择退出）
+	startTray(actualAddr)
 }

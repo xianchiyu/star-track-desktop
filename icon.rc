@@ -1,0 +1,27 @@
+IDI_ICON1 ICON "icon.ico"
+
+1 VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 1,0,0,0
+FILEOS 0x40004L
+FILETYPE 0x1L
+{
+    BLOCK "StringFileInfo"
+    {
+        BLOCK "080403B0"
+        {
+            VALUE "CompanyName", "星轨"
+            VALUE "FileDescription", "星轨 · 心事星空 - 个人待办系统"
+            VALUE "FileVersion", "1.0.0.0"
+            VALUE "InternalName", "star-track-desktop"
+            VALUE "LegalCopyright", "© 2026"
+            VALUE "OriginalFilename", "star-track-desktop.exe"
+            VALUE "ProductName", "星轨 · 心事星空"
+            VALUE "ProductVersion", "1.0.0.0"
+        }
+    }
+    BLOCK "VarFileInfo"
+    {
+        VALUE "Translation", 0x0804, 0x03B0
+    }
+}
