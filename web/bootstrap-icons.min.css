@@ -2,5 +2,53 @@
  * Bootstrap Icons v1.11.3 (https://icons.getbootstrap.com/)
  * Copyright 2019-2024 The Bootstrap Authors
  * Licensed under MIT (https://github.com/twbs/icons/blob/main/LICENSE)
+ *
+ * 精简版：仅包含项目用到的图标
  */
-@font-face{font-display:block;font-family:bootstrap-icons;src:url("./fonts/bootstrap-icons.woff2") format("woff2")}.bi::before,[class*=" bi-"]::before,[class^=bi-]::before{display:inline-block;font-family:bootstrap-icons!important;font-style:normal;font-weight:400!important;font-variant:normal;text-transform:none;line-height:1;vertical-align:-.125em;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+
+@font-face {
+  font-display: block;
+  font-family: "bootstrap-icons";
+  src: url("./fonts/bootstrap-icons.woff2") format("woff2");
+}
+
+.bi::before,
+[class^="bi-"]::before,
+[class*=" bi-"]::before {
+  display: inline-block;
+  font-family: bootstrap-icons !important;
+  font-style: normal;
+  font-weight: normal !important;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  vertical-align: -.125em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.bi-box-arrow-right::before { content: "\f1c3"; }
+.bi-calendar-check::before { content: "\f1e2"; }
+.bi-calendar-event::before { content: "\f1e8"; }
+.bi-check::before { content: "\f26e"; }
+.bi-check2-circle::before { content: "\f270"; }
+.bi-chevron-down::before { content: "\f282"; }
+.bi-chevron-left::before { content: "\f284"; }
+.bi-chevron-right::before { content: "\f285"; }
+.bi-clock::before { content: "\f293"; }
+.bi-clock-history::before { content: "\f292"; }
+.bi-download::before { content: "\f30a"; }
+.bi-grip-vertical::before { content: "\f3fe"; }
+.bi-hourglass-split::before { content: "\f41f"; }
+.bi-moon::before { content: "\f497"; }
+.bi-moon-stars::before { content: "\f496"; }
+.bi-moon-stars-fill::before { content: "\f495"; }
+.bi-plus::before { content: "\f4fe"; }
+.bi-plus-lg::before { content: "\f64d"; }
+.bi-stars::before { content: "\f589"; }
+.bi-sun-fill::before { content: "\f5a1"; }
+.bi-tag::before { content: "\f5b0"; }
+.bi-trash::before { content: "\f5de"; }
+.bi-trash3::before { content: "\f78b"; }
+.bi-x::before { content: "\f62a"; }
+.bi-x-lg::before { content: "\f659"; }

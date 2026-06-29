@@ -51,11 +51,19 @@ func generateIconBytes() []byte {
 	return ico.Bytes()
 }
 
-// drawStarIcon 绘制星空图标：透明背景 + 大号亮色新月 + 一颗金星
+// drawStarIcon 绘制星记托盘图标：深色不透明背景 + 亮色新月 + 金星
 func drawStarIcon(size int) image.Image {
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
 
-	// 透明背景（不填充，默认零值即透明）
+	// 深色不透明背景（在浅色/深色任务栏下都有可辨识的色块）
+	bg := color.RGBA{30, 30, 50, 255} // 深蓝灰底
+
+	// 先填充整个背景
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			img.Set(x, y, bg)
+		}
+	}
 
 	// 计算月亮参数，按图标比例缩放
 	cx := float64(size) * 0.42
@@ -64,10 +72,10 @@ func drawStarIcon(size int) image.Image {
 
 	// 月亮亮色
 	moon := color.RGBA{255, 235, 180, 255}
-	// 裁切圆（透明）
-	transparent := color.RGBA{0, 0, 0, 0}
+	// 裁切圆（与背景同色）
+	transparent := bg
 
-	// 新月：画一个亮圆，再用偏移的透明圆裁出月牙
+	// 新月：画一个亮圆，再用偏移的同色圆裁出月牙
 	cx2 := cx + r*0.5
 	cy2 := cy - r*0.25
 	r2 := r * 0.85
@@ -102,6 +110,35 @@ func drawStarIcon(size int) image.Image {
 			dx, dy := float64(x-starX), float64(y-starY)
 			if dx*dx+dy*dy < float64(starR*starR) {
 				img.Set(x, y, star)
+			}
+		}
+	}
+
+	// 16x16 小尺寸时星星不好画，改用小亮点
+	if size <= 16 {
+		// 加两个小亮点
+		bright := color.RGBA{255, 220, 100, 255}
+		spotX := int(float64(size) * 0.55)
+		spotY := int(float64(size) * 0.22)
+		for dy := -1; dy <= 1; dy++ {
+			for dx := -1; dx <= 1; dx++ {
+				sx, sy := spotX+dx, spotY+dy
+				if sx >= 0 && sx < size && sy >= 0 && sy < size {
+					img.Set(sx, sy, bright)
+				}
+			}
+		}
+	}
+
+	// 给图标加一圈细边框，16x16 不画边框避免太挤
+	if size > 16 {
+		border := color.RGBA{80, 80, 120, 255}
+		for x := 0; x < size; x++ {
+			img.Set(x, 0, border)
+			img.Set(x, size-1, border)
+			if x < size/2 || x > size/2+1 {
+				img.Set(0, x, border)
+				img.Set(size-1, x, border)
 			}
 		}
 	}
