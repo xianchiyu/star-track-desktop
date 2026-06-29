@@ -143,9 +143,9 @@
                     <div class="date-options">
                         <div class="date-selector" id="dateSelector">
                             <button type="button" class="date-chip" data-date="today">今天</button>
-                            <input type="text" id="inputStartDate" class="date-input" placeholder="yyyy/mm/dd" autocomplete="off" onfocus="this.type='date'" onblur="if(!this.value)this.type='text'">
+                            <input type="date" id="inputStartDate" class="date-input" title="开始日期">
                             <span class="date-sep">→</span>
-                            <input type="text" id="inputDueDate" class="date-input" placeholder="yyyy/mm/dd" autocomplete="off" onfocus="this.type='date'" onblur="if(!this.value)this.type='text'">
+                            <input type="date" id="inputDueDate" class="date-input" title="截止日期">
                         </div>
                     </div>
                 </div>
