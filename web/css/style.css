@@ -998,6 +998,18 @@ html.theme-light .constellation-node-title {
     display: inline-block;
 }
 
+.date-wrap::after {
+    content: "\f1e8";
+    font-family: bootstrap-icons;
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    pointer-events: none;
+}
+
 .date-display {
     width: 64px;
     text-align: center;

@@ -1342,6 +1342,16 @@ function bindEvents() {
         });
     });
 
+    // 底部日期选择联动：隐藏 date input → 显示 text
+    document.getElementById('inputDueDate').addEventListener('change', () => {
+        document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
+        syncDateDisplay('inputDueDate');
+    });
+    document.getElementById('inputStartDate').addEventListener('change', () => {
+        document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
+        syncDateDisplay('inputStartDate');
+    });
+
     // 日期快捷键
     document.querySelectorAll('.date-chip').forEach(chip => {
         chip.addEventListener('click', () => {
@@ -1355,39 +1365,6 @@ function bindEvents() {
             }
         });
     });
-
-    // 底部日期选择联动：隐藏 date input → 显示 text
-    function setQuickDate(realId, dateStr) {
-        const real = document.getElementById(realId);
-        const display = document.getElementById(realId + 'Text');
-        real.value = dateStr || '';
-        if (dateStr) {
-            const parts = dateStr.split('-');
-            display.value = parts[1] + '/' + parts[2];
-        } else {
-            display.value = '';
-        }
-    }
-
-    document.getElementById('inputDueDate').addEventListener('change', () => {
-        document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
-        syncDateDisplay('inputDueDate');
-    });
-    document.getElementById('inputStartDate').addEventListener('change', () => {
-        document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
-        syncDateDisplay('inputStartDate');
-    });
-
-    function syncDateDisplay(realId) {
-        const real = document.getElementById(realId);
-        const display = document.getElementById(realId + 'Text');
-        if (real.value) {
-            const parts = real.value.split('-');
-            display.value = parts[1] + '/' + parts[2];
-        } else {
-            display.value = '';
-        }
-    }
 
     // 详情面板日期编辑
     document.getElementById('detailDueDate').addEventListener('change', onDetailDueDateChange);
@@ -1585,6 +1562,31 @@ async function onQuickAdd(e) {
         await refresh();
     } catch (err) {
         console.error('添加失败:', err);
+    }
+}
+
+// 设置快速添加区的日期值（隐藏 date input + 显示 text 同步）
+function setQuickDate(realId, dateStr) {
+    const real = document.getElementById(realId);
+    const display = document.getElementById(realId + 'Text');
+    real.value = dateStr || '';
+    if (dateStr) {
+        const parts = dateStr.split('-');
+        display.value = parts[1] + '/' + parts[2];
+    } else {
+        display.value = '';
+    }
+}
+
+// 隐藏 date input 变化时同步到显示 text
+function syncDateDisplay(realId) {
+    const real = document.getElementById(realId);
+    const display = document.getElementById(realId + 'Text');
+    if (real.value) {
+        const parts = real.value.split('-');
+        display.value = parts[1] + '/' + parts[2];
+    } else {
+        display.value = '';
     }
 }
 
