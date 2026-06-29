@@ -143,9 +143,15 @@
                     <div class="date-options">
                         <div class="date-selector" id="dateSelector">
                             <button type="button" class="date-chip" data-date="today">今天</button>
-                            <input type="date" id="inputStartDate" class="date-input" title="开始日期">
+                            <div class="date-wrap">
+                                <input type="text" id="inputStartDateText" class="date-input date-display" placeholder="" readonly>
+                                <input type="date" id="inputStartDate" class="date-input date-real">
+                            </div>
                             <span class="date-sep">→</span>
-                            <input type="date" id="inputDueDate" class="date-input" title="截止日期">
+                            <div class="date-wrap">
+                                <input type="text" id="inputDueDateText" class="date-input date-display" placeholder="" readonly>
+                                <input type="date" id="inputDueDate" class="date-input date-real">
+                            </div>
                         </div>
                     </div>
                 </div>

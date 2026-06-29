@@ -1348,23 +1348,46 @@ function bindEvents() {
             document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
             const val = chip.dataset.date;
-            const startInput = document.getElementById('inputStartDate');
-            const dueInput = document.getElementById('inputDueDate');
             if (val === 'today') {
                 const today = getTodayStr();
-                startInput.value = today;
-                dueInput.value = today;
+                setQuickDate('inputStartDate', today);
+                setQuickDate('inputDueDate', today);
             }
         });
     });
 
-    // date input 变化时，取消今天快捷键的 active
+    // 底部日期选择联动：隐藏 date input → 显示 text
+    function setQuickDate(realId, dateStr) {
+        const real = document.getElementById(realId);
+        const display = document.getElementById(realId + 'Text');
+        real.value = dateStr || '';
+        if (dateStr) {
+            const parts = dateStr.split('-');
+            display.value = parts[1] + '/' + parts[2];
+        } else {
+            display.value = '';
+        }
+    }
+
     document.getElementById('inputDueDate').addEventListener('change', () => {
         document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
+        syncDateDisplay('inputDueDate');
     });
     document.getElementById('inputStartDate').addEventListener('change', () => {
         document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
+        syncDateDisplay('inputStartDate');
     });
+
+    function syncDateDisplay(realId) {
+        const real = document.getElementById(realId);
+        const display = document.getElementById(realId + 'Text');
+        if (real.value) {
+            const parts = real.value.split('-');
+            display.value = parts[1] + '/' + parts[2];
+        } else {
+            display.value = '';
+        }
+    }
 
     // 详情面板日期编辑
     document.getElementById('detailDueDate').addEventListener('change', onDetailDueDateChange);
@@ -1557,8 +1580,8 @@ async function onQuickAdd(e) {
         });
 
         input.value = '';
-        document.getElementById('inputDueDate').value = '';
-        document.getElementById('inputStartDate').value = '';
+        setQuickDate('inputDueDate', '');
+        setQuickDate('inputStartDate', '');
         await refresh();
     } catch (err) {
         console.error('添加失败:', err);
