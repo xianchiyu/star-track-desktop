@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="" id="csrfMeta">
     <title>星记 · 登录</title>
-    <link rel="stylesheet" href="bootstrap-icons.min.css">
+    <link rel="stylesheet" href="bootstrap-icons.min.css?v=2">
     <style>
         :root {
             --bg-deep: #060a14;

@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>星记</title>
     <meta name="csrf-token" content="" id="csrfMeta">
-    <link href="bootstrap-icons.min.css" rel="stylesheet">
+    <link href="bootstrap-icons.min.css?v=2" rel="stylesheet">
     <link href="css/style.css?v=24" rel="stylesheet">
 </head>
 <body>
