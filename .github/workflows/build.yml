@@ -113,9 +113,9 @@ jobs:
       - name: 创建 Release
         uses: softprops/action-gh-release@v2
         with:
-          name: 星轨桌面版 ${{ github.ref_name }}
+          name: 星记桌面版 ${{ github.ref_name }}
           body: |
-            ## 星轨 · 心事星空 桌面版 ${{ github.ref_name }}
+            ## 星记 桌面版 ${{ github.ref_name }}
 
             下载 `star-track-desktop.exe`，双击运行即可安装使用。
 

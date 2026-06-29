@@ -1,11 +1,11 @@
-<!-- 星轨 · 登录页（桌面版） -->
+<!-- 星记 · 登录页（桌面版） -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="" id="csrfMeta">
-    <title>星轨 · 登录</title>
+    <title>星记 · 登录</title>
     <link rel="stylesheet" href="bootstrap-icons.min.css">
     <style>
         :root {
@@ -147,8 +147,8 @@
     <div class="login-card">
         <div class="logo">
             <span class="logo-icon"><i class="bi bi-stars"></i></span>
-            <h1>星轨</h1>
-            <p>心事星空 · 私人领地</p>
+            <h1>星记</h1>
+            <p>私人领地</p>
         </div>
         <form id="loginForm" autocomplete="off">
             <div class="field">

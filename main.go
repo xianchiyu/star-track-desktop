@@ -36,6 +36,7 @@ var (
 
 const (
 	MB_OK                = 0
+	MB_OKCANCEL          = 1
 	MB_ICONINFORMATION   = 64
 	MB_ICONERROR         = 16
 	MB_ICONQUESTION      = 32
@@ -144,13 +145,13 @@ func isInstalled() bool {
 
 // 在桌面创建快捷方式
 func createDesktopShortcut(targetPath string) error {
-	shortcutName := "星轨 · 心事星空"
+	shortcutName := "星记"
 
 	psScript := fmt.Sprintf(`$ws = New-Object -ComObject WScript.Shell
 $sc = $ws.CreateShortcut([Environment]::GetFolderPath("Desktop") + "\%s.lnk")
 $sc.TargetPath = "%s"
 $sc.WorkingDirectory = "%s"
-$sc.Description = "星轨 · 心事星空 - 个人待办系统"
+$sc.Description = "星记 - 个人待办系统"
 $sc.Save()
 `, shortcutName, targetPath, filepath.Dir(targetPath))
 
@@ -163,11 +164,11 @@ $sc.Save()
 
 // 执行安装流程
 func runInstallation() bool {
-	msgBox("星轨 · 心事星空", "✦ 欢迎使用 星轨 · 心事星空 ✦\n\n首次启动，需要先选择数据存放位置。", MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
+	msgBox("星记", "✦ 欢迎使用 星记 ✦\n\n首次启动，需要先选择数据存放位置。", MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
 
 	picked, ok := pickFolderViaPowerShell("选择数据存放位置")
 	if !ok {
-		msgBox("星轨 · 心事星空", "未选择文件夹，安装已取消。", MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
+		msgBox("星记", "未选择文件夹，安装已取消。", MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
 		return false
 	}
 
@@ -180,8 +181,16 @@ func runInstallation() bool {
 
 	destDir := picked
 	exePath, _ := os.Executable()
-	exeName := filepath.Base(exePath)
-	destExe := filepath.Join(destDir, exeName)
+	// 不管原始文件名带什么后缀（浏览器下载重复时加的 (1)(2) 等），统一用固定名字
+	destExe := filepath.Join(destDir, "星记.exe")
+
+	// 安装信息确认弹窗
+	confirmMsg := fmt.Sprintf("将安装星记到以下位置：\n\n📁 %s\n\n默认用户名：%s\n默认密码：%s\n\n安装后可在目标目录下的 .env 文件中修改以上配置。", destDir, authUser, authPass)
+
+	if msgBox("确认安装", confirmMsg, MB_OKCANCEL|MB_ICONINFORMATION|MB_SETFOREGROUND) != 1 {
+		msgBox("安装已取消", "你选择了取消安装。", MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
+		return false
+	}
 
 	// 复制 exe 自身到数据目录
 	if exePath != destExe {
@@ -204,9 +213,10 @@ func runInstallation() bool {
 	}
 
 	// 创建 .env
-	envContent := fmt.Sprintf(`# 星轨 · 心事星空 桌面版配置
+	envContent := fmt.Sprintf(`# 星记 桌面版配置
 AUTH_USER=%s
 AUTH_PASS=%s
+LISTEN_ADDR=127.0.0.1:18000
 `, authUser, authPass)
 	os.WriteFile(filepath.Join(destDir, ".env"), []byte(envContent), 0644)
 
@@ -252,6 +262,8 @@ func loadEnv() {
 				authUser = v
 			case "AUTH_PASS":
 				authPass = v
+			case "LISTEN_ADDR":
+				cfg.ListenAddr = v
 			}
 		}
 	}
@@ -1439,9 +1451,10 @@ func main() {
 
 	envPath := filepath.Join(cfg.DataDir, ".env")
 	if _, err := os.Stat(envPath); os.IsNotExist(err) {
-		envContent := fmt.Sprintf(`# 星轨 · 心事星空 桌面版配置
+		envContent := fmt.Sprintf(`# 星记 桌面版配置
 AUTH_USER=%s
 AUTH_PASS=%s
+LISTEN_ADDR=127.0.0.1:18000
 `, authUser, authPass)
 		os.WriteFile(envPath, []byte(envContent), 0644)
 		log.Println("已创建 .env 配置文件")
@@ -1483,18 +1496,18 @@ AUTH_PASS=%s
 
 	listener, err := net.Listen("tcp", cfg.ListenAddr)
 	if err != nil {
-		msgBox("星轨 · 心事星空", fmt.Sprintf("端口 %s 启动失败，请检查是否已运行。\n\n错误: %v", cfg.ListenAddr, err), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
+		msgBox("星记", fmt.Sprintf("端口 %s 启动失败，请检查是否已运行。\n\n错误: %v", cfg.ListenAddr, err), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
 		os.Exit(1)
 	}
 
 	actualAddr := listener.Addr().String()
-	log.Printf("星轨服务启动于 http://%s", actualAddr)
+	log.Printf("星记服务启动于 http://%s", actualAddr)
 
 	// HTTP server 在后台 goroutine 运行
 	go func() {
 		if err := http.Serve(listener, mux); err != nil {
 			log.Printf("服务错误: %v", err)
-			msgBox("星轨 · 心事星空", fmt.Sprintf("服务错误: %v", err), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
+			msgBox("星记", fmt.Sprintf("服务错误: %v", err), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
 			os.Exit(1)
 		}
 	}()

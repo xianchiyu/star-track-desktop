@@ -12,7 +12,7 @@ import (
 
 var trayURL string
 
-// generateIconBytes 生成星轨托盘图标（ICO 格式，含 32x32 + 16x16 两种尺寸）
+// generateIconBytes 生成星记托盘图标（ICO 格式，含 32x32 + 16x16 两种尺寸）
 func generateIconBytes() []byte {
 	icon32 := drawStarIcon(32)
 	icon16 := drawStarIcon(16)
@@ -124,9 +124,9 @@ func startTray(url string) {
 func onTrayReady() {
 	systray.SetIcon(generateIconBytes())
 	systray.SetTitle("")
-	systray.SetTooltip("星轨 · 心事星空 - 运行中")
+	systray.SetTooltip("星记 - 运行中")
 
-	mOpen := systray.AddMenuItem("打开星轨", "在浏览器中打开")
+	mOpen := systray.AddMenuItem("打开星记", "在浏览器中打开")
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("退出", "退出程序")
 

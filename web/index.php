@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>星轨 · 心事星空</title>
+    <title>星记</title>
     <meta name="csrf-token" content="" id="csrfMeta">
     <link href="bootstrap-icons.min.css" rel="stylesheet">
     <link href="css/style.css?v=24" rel="stylesheet">
@@ -18,7 +18,7 @@
 
         <!-- 顶部导航 -->
         <nav id="nav">
-            <span class="nav-brand">星轨</span>
+            <span class="nav-brand">星记</span>
             <div class="nav-tabs">
                 <button class="nav-tab active" data-view="today">
                     <i class="bi bi-moon-stars"></i> 今日星空
