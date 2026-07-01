@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"embed"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -20,35 +19,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
-	"unicode/utf16"
-	"unsafe"
 
 	_ "modernc.org/sqlite"
 )
-
-var (
-	kernel32            = syscall.NewLazyDLL("kernel32.dll")
-	user32              = syscall.NewLazyDLL("user32.dll")
-	procMessageBoxW     = user32.NewProc("MessageBoxW")
-)
-
-const (
-	MB_OK                = 0
-	MB_OKCANCEL          = 1
-	MB_ICONINFORMATION   = 64
-	MB_ICONERROR         = 16
-	MB_ICONQUESTION      = 32
-	MB_SETFOREGROUND     = 0x00010000
-)
-
-func msgBox(title, text string, flags uintptr) int {
-	titlePtr, _ := syscall.UTF16PtrFromString(title)
-	textPtr, _ := syscall.UTF16PtrFromString(text)
-	ret, _, _ := procMessageBoxW.Call(0, uintptr(unsafe.Pointer(textPtr)), uintptr(unsafe.Pointer(titlePtr)), flags)
-	return int(ret)
-}
 
 // ---------------------------------------------------------------------------
 // embed 前端静态文件
@@ -85,154 +59,6 @@ var cfg = Config{
 }
 
 // ---------------------------------------------------------------------------
-// - Windows 文件夹选择对话框（通过 PowerShell）
-// ---------------------------------------------------------------------------
-
-func pickFolderViaPowerShell(title string) (string, bool) {
-
-	psScript := fmt.Sprintf(`Add-Type -AssemblyName System.Windows.Forms
-$folder = New-Object System.Windows.Forms.FolderBrowserDialog
-$folder.Description = "%s"
-$folder.ShowNewFolderButton = $true
-$result = $folder.ShowDialog((New-Object System.Windows.Forms.Form -Property @{TopMost=$true}))
-if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-    Write-Output $folder.SelectedPath
-    exit 0
-} else {
-    exit 1
-}
-`, title)
-
-	// 用 -EncodedCommand 方式执行，避免中文编码问题
-	encodedBytes := utf16.Encode([]rune(psScript))
-	encoded := base64.StdEncoding.EncodeToString(uint16ToBytes(encodedBytes))
-
-	cmd := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded)
-	output, err := cmd.Output()
-	if err != nil {
-		return "", false
-	}
-	path := strings.TrimSpace(string(output))
-	if path == "" {
-		return "", false
-	}
-	return path, true
-}
-
-// uint16ToBytes 将 []uint16 转为 []byte（小端序）
-func uint16ToBytes(s []uint16) []byte {
-	b := make([]byte, len(s)*2)
-	for i, v := range s {
-		b[i*2] = byte(v)
-		b[i*2+1] = byte(v >> 8)
-	}
-	return b
-}
-
-// ---------------------------------------------------------------------------
-// - 安装 / 首次启动
-// ---------------------------------------------------------------------------
-
-// 判断 exe 是否已"安装"到数据目录：检查同目录是否有 .env
-func isInstalled() bool {
-	exePath, err := os.Executable()
-	if err != nil {
-		return false
-	}
-	_, err = os.Stat(filepath.Join(filepath.Dir(exePath), ".env"))
-	return err == nil
-}
-
-// 在桌面创建快捷方式
-func createDesktopShortcut(targetPath string) error {
-	shortcutName := "星记"
-
-	psScript := fmt.Sprintf(`$ws = New-Object -ComObject WScript.Shell
-$sc = $ws.CreateShortcut([Environment]::GetFolderPath("Desktop") + "\%s.lnk")
-$sc.TargetPath = "%s"
-$sc.WorkingDirectory = "%s"
-$sc.Description = "星记 - 个人待办系统"
-$sc.Save()
-`, shortcutName, targetPath, filepath.Dir(targetPath))
-
-	encodedBytes := utf16.Encode([]rune(psScript))
-	encoded := base64.StdEncoding.EncodeToString(uint16ToBytes(encodedBytes))
-
-	cmd := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded)
-	return cmd.Run()
-}
-
-// 执行安装流程
-func runInstallation() bool {
-	msgBox("星记", "✦ 欢迎使用 星记 ✦\n\n首次启动，需要先选择数据存放位置。", MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
-
-	picked, ok := pickFolderViaPowerShell("选择数据存放位置")
-	if !ok {
-		msgBox("星记", "未选择文件夹，安装已取消。", MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
-		return false
-	}
-
-	// 验证目录
-	info, err := os.Stat(picked)
-	if err != nil || !info.IsDir() {
-		msgBox("安装错误", fmt.Sprintf("所选目录不可用：%s", picked), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
-		return false
-	}
-
-	destDir := picked
-	exePath, _ := os.Executable()
-	// 不管原始文件名带什么后缀（浏览器下载重复时加的 (1)(2) 等），统一用固定名字
-	destExe := filepath.Join(destDir, "星记.exe")
-
-	// 安装信息确认弹窗
-	confirmMsg := fmt.Sprintf("将安装星记到以下位置：\n\n📁 %s\n\n默认用户名：%s\n默认密码：%s\n\n安装后可在目标目录下的 .env 文件中修改以上配置。", destDir, authUser, authPass)
-
-	if msgBox("确认安装", confirmMsg, MB_OKCANCEL|MB_ICONINFORMATION|MB_SETFOREGROUND) != 1 {
-		msgBox("安装已取消", "你选择了取消安装。", MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
-		return false
-	}
-
-	// 复制 exe 自身到数据目录
-	if exePath != destExe {
-		srcData, err := os.ReadFile(exePath)
-		if err != nil {
-			msgBox("安装错误", fmt.Sprintf("复制 exe 失败: %v", err), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
-			return false
-		}
-		if err := os.WriteFile(destExe, srcData, 0755); err != nil {
-			msgBox("安装错误", fmt.Sprintf("写入 exe 失败: %v", err), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
-			return false
-		}
-	}
-
-	// 在桌面创建快捷方式
-	if err := createDesktopShortcut(destExe); err != nil {
-		msgBox("安装提示", fmt.Sprintf("创建快捷方式失败: %v\n\n仍可手动运行 %s", err, destExe), MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
-	} else {
-		msgBox("安装提示", "已创建桌面快捷方式。", MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
-	}
-
-	// 创建 .env
-	envContent := fmt.Sprintf(`# 星记 桌面版配置
-AUTH_USER=%s
-AUTH_PASS=%s
-LISTEN_ADDR=127.0.0.1:18000
-`, authUser, authPass)
-	os.WriteFile(filepath.Join(destDir, ".env"), []byte(envContent), 0644)
-
-	// 启动目标目录的新 exe
-	cmd := exec.Command(destExe)
-	if err := cmd.Start(); err != nil {
-		msgBox("启动错误", fmt.Sprintf("✅ 安装成功！\n\n📁 数据目录: %s\n\n但自动启动失败: %v\n\n请手动运行: %s", destDir, err, destExe), MB_OK|MB_ICONINFORMATION|MB_SETFOREGROUND)
-		return true
-	}
-	// 新进程已启动，当前进程退出
-	os.Exit(0)
-	return true
-}
-
-
-// ---------------------------------------------------------------------------
 // 工具函数
 // ---------------------------------------------------------------------------
 
@@ -244,7 +70,7 @@ func init() {
 }
 
 func loadEnv() {
-	data, err := os.ReadFile(".env")
+	data, err := os.ReadFile(filepath.Join(cfg.DataDir, ".env"))
 	if err != nil {
 		return
 	}
@@ -1412,31 +1238,36 @@ func openBrowser(url string) {
 // - 主入口
 // ---------------------------------------------------------------------------
 
-func main() {
-	// ── 判断是否已安装到数据目录 ──
-	if !isInstalled() {
-		if !runInstallation() {
-			os.Exit(0)
+// resolveDataDir 决定数据目录：exe 同路径可写就用同路径（绿色版），
+// 否则 fallback 到 %APPDATA%/星记（安装版，exe 在 Program Files 时走这条）
+func resolveDataDir() string {
+	exePath, err := os.Executable()
+	if err == nil {
+		exeDir := filepath.Dir(exePath)
+		probe := filepath.Join(exeDir, ".write-probe")
+		if f, err := os.Create(probe); err == nil {
+			f.Close()
+			os.Remove(probe)
+			return exeDir
 		}
-		// runInstallation 内部已启动新 exe 并调用 os.Exit(0)
-		return
 	}
+	appData, err := os.UserConfigDir()
+	if err != nil {
+		return "."
+	}
+	return filepath.Join(appData, "星记")
+}
 
-	// ── 已安装：exe 所在目录就是数据目录 ──
-	exePath, _ := os.Executable()
-	dataDir := filepath.Dir(exePath)
+func main() {
+	dataDir := resolveDataDir()
 	cfg.AppDir = dataDir
 	cfg.DataDir = dataDir
 	cfg.LogDir = dataDir
 
-	// 切换到数据目录，后续所有相对路径自动对齐
-	os.Chdir(dataDir)
-
-	loadEnv()
-
-	// 创建数据子目录
 	os.MkdirAll(filepath.Join(dataDir, "data"), 0755)
 	os.MkdirAll(filepath.Join(dataDir, "logs"), 0755)
+
+	loadEnv()
 
 	logFile, err := os.OpenFile(filepath.Join(dataDir, "logs", "server.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err == nil {
@@ -1496,8 +1327,7 @@ LISTEN_ADDR=127.0.0.1:18000
 
 	listener, err := net.Listen("tcp", cfg.ListenAddr)
 	if err != nil {
-		msgBox("星记", fmt.Sprintf("端口 %s 启动失败，请检查是否已运行。\n\n错误: %v", cfg.ListenAddr, err), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
-		os.Exit(1)
+		log.Fatalf("端口 %s 启动失败: %v", cfg.ListenAddr, err)
 	}
 
 	actualAddr := listener.Addr().String()
@@ -1506,9 +1336,7 @@ LISTEN_ADDR=127.0.0.1:18000
 	// HTTP server 在后台 goroutine 运行
 	go func() {
 		if err := http.Serve(listener, mux); err != nil {
-			log.Printf("服务错误: %v", err)
-			msgBox("星记", fmt.Sprintf("服务错误: %v", err), MB_OK|MB_ICONERROR|MB_SETFOREGROUND)
-			os.Exit(1)
+			log.Fatalf("服务错误: %v", err)
 		}
 	}()
 

@@ -1,5 +1,9 @@
 # 编译产物
 *.exe
+星记-Setup.exe
+
+# Inno Setup 生成的中间文件
+installer/icon.ico
 
 # 运行时数据
 data/
@@ -9,3 +13,6 @@ logs/
 # IDE
 .idea/
 .vscode/
+
+# AI 计划文档（仅本地使用，不入库）
+ai-plans/

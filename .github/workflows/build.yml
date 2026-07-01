@@ -28,17 +28,17 @@ jobs:
         shell: pwsh
         run: |
           Add-Type -AssemblyName System.Drawing
-          
+
           # 创建 256x256 图标
           $bmp = New-Object System.Drawing.Bitmap(256, 256)
           $g = [System.Drawing.Graphics]::FromImage($bmp)
           $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
           $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-          
+
           # 深蓝背景
           $bgBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(6, 10, 20))
           $g.FillRectangle($bgBrush, 0, 0, 256, 256)
-          
+
           # 星尘点缀
           $starBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(180, 255, 255, 255))
           $rand = New-Object System.Random(42)
@@ -48,67 +48,71 @@ jobs:
             $sr = $rand.Next(1, 3)
             $g.FillEllipse($starBrush, $sx, $sy, $sr, $sr)
           }
-          
+
           # 新月（用两个圆裁切）
           $moonColor = [System.Drawing.Color]::FromArgb(255, 230, 200)
           $moonBrush = New-Object System.Drawing.SolidBrush($moonColor)
           $g.FillEllipse($moonBrush, 70, 50, 110, 110)
           $bgBrush2 = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(6, 10, 20))
           $g.FillEllipse($bgBrush2, 100, 40, 110, 110)
-          
+
           # 轨道环
           $orbitPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(100, 147, 112, 219), 2)
           $orbitPen.DashStyle = [System.Drawing.Drawing2D.DashStyle]::Dash
           $g.DrawEllipse($orbitPen, 40, 20, 176, 176)
-          
+
           # 轨道上的星星
           $accentBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 215, 0))
           $g.FillEllipse($accentBrush, 200, 90, 12, 12)
           $purpleBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(147, 112, 219))
           $g.FillEllipse($purpleBrush, 50, 160, 8, 8)
-          
+
           $g.Dispose()
-          
-          # 保存为多尺寸 ICO
-          $iconPath = "icon.ico"
+
+          # 保存为 ICO
+          $iconPath = "installer\icon.ico"
           $ms = New-Object System.IO.MemoryStream
           $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
           $pngBytes = $ms.ToArray()
           $ms.Dispose()
-          
-          # 写 ICO 文件头 + 单张 256x256 PNG
+
           $fs = [System.IO.File]::Create($iconPath)
           $bw = New-Object System.IO.BinaryWriter($fs)
-          # ICONDIR
-          $bw.Write([UInt16]0)      # reserved
-          $bw.Write([UInt16]1)      # type: icon
-          $bw.Write([UInt16]1)      # count: 1 image
-          # ICONDIRENTRY
-          $bw.Write([Byte]0)        # width 0 = 256
-          $bw.Write([Byte]0)        # height 0 = 256
-          $bw.Write([Byte]0)        # color count
-          $bw.Write([Byte]0)        # reserved
-          $bw.Write([UInt16]1)      # planes
-          $bw.Write([UInt16]32)     # bit count
-          $bw.Write([UInt32]$pngBytes.Length)  # bytes in res
-          $bw.Write([UInt32]22)     # offset
-          # image data
+          $bw.Write([UInt16]0)
+          $bw.Write([UInt16]1)
+          $bw.Write([UInt16]1)
+          $bw.Write([Byte]0)
+          $bw.Write([Byte]0)
+          $bw.Write([Byte]0)
+          $bw.Write([Byte]0)
+          $bw.Write([UInt16]1)
+          $bw.Write([UInt16]32)
+          $bw.Write([UInt32]$pngBytes.Length)
+          $bw.Write([UInt32]22)
           $bw.Write($pngBytes)
           $bw.Dispose()
           $fs.Dispose()
           $bmp.Dispose()
-          
-          Write-Host "图标已生成: $iconPath"
-          
-          # 安装 rsrc 并生成 .syso
+
+          Write-Host "图标已生成: installer/icon.ico"
+
+          # 生成 .syso 资源文件（让绿色版 exe 也带星空图标）
           go install github.com/akavel/rsrc@latest
           $rsrc = Join-Path (go env GOPATH) "bin" "rsrc.exe"
-          & $rsrc -ico icon.ico -arch amd64 -o resource.syso
-          
+          & $rsrc -ico installer\icon.ico -arch amd64 -o resource.syso
           Write-Host "资源文件已生成: resource.syso"
 
       - name: 编译
-        run: go build -ldflags="-s -w -H windowsgui" -o star-track-desktop.exe
+        run: go build -ldflags="-H windowsgui" -o star-track-desktop.exe
+
+      - name: 安装 Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress --confirm
+
+      - name: 编译安装包
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\star-track.iss
 
       - name: 创建 Release
         uses: softprops/action-gh-release@v2
@@ -117,7 +121,23 @@ jobs:
           body: |
             ## 星记 桌面版 ${{ github.ref_name }}
 
-            下载 `star-track-desktop.exe`，双击运行即可安装使用。
+            ### 下载方式（二选一）
+
+            **① `星记-Setup.exe` — 安装版（推荐普通用户）**
+            - 标准安装向导，自选安装目录 → 自动创建桌面快捷方式
+            - 数据直接放在所选目录下（exe 同路径）
+            - 卸载可在控制面板进行
+            - AV 误报率低，体验最顺
+
+            **② `star-track-desktop.exe` — 绿色版（高级用户）**
+            - 单文件，无需安装，双击即用
+            - 数据自动生成在 exe 同路径（`.env` / `data/` / `logs/`）
+            - 想放哪就放哪，备份整个目录即可迁移
+
+            ### 默认账号
+            用户名：`pilot`
+            密码：`startrack`
+            （在 exe 同路径的 `.env` 文件中修改）
 
             ### ⚠️ 关于 SmartScreen 提示
             首次运行时 Windows 可能弹出 SmartScreen 安全提示，这是因为本程序没有购买代码签名证书。
@@ -125,4 +145,6 @@ jobs:
 
             ### 更新说明
             - 详见仓库提交记录。
-          files: star-track-desktop.exe
+          files: |
+            星记-Setup.exe
+            star-track-desktop.exe
