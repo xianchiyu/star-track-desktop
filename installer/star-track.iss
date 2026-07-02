@@ -44,18 +44,37 @@ Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "立即启动 {#AppName}"; Flags: nowait postinstall skipifsilent
 
-[UninstallRun]
-; 卸载前先关闭运行中的程序
-Filename: "{cmd}"; Parameters: "/C taskkill /IM {#AppExeName} /F /T"; Flags: runhidden; RunOnceId: "KillApp"
-
 [UninstallDelete]
-; 卸载时清理 exe 同路径的运行时数据
+; 只清理程序运行时数据，不碰根目录
 Type: filesandordirs; Name: "{app}\data"
 Type: filesandordirs; Name: "{app}\logs"
 Type: files; Name: "{app}\.env"
+Type: files; Name: "{app}\resource.syso"
+Type: files; Name: "{app}\star-track-desktop.exe"
 
 [Code]
 function InitializeSetup(): Boolean;
 begin
   Result := True;
+end;
+
+// 卸载时关闭进程
+function InitializeUninstall(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{cmd}'), '/C taskkill /IM star-track-desktop.exe /F /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := True;
+end;
+
+// 卸载完成后尝试删除 {app} 目录，但不强制（非空时自动跳过）
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    if RemoveDir(ExpandConstant('{app}')) then
+      Log('成功删除安装目录')
+    else
+      Log('安装目录非空或已不存在，跳过删除');
+  end;
 end;
