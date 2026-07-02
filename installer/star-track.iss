@@ -34,7 +34,7 @@ Name: "chinesesimp"; MessagesFile: "ChineseSimplified.isl"
 Name: "desktopicon"; Description: "在桌面创建快捷方式"; GroupDescription: "附加选项:"
 
 [Files]
-Source: "star-track-desktop.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\star-track-desktop.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
