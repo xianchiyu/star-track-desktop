@@ -54,7 +54,7 @@ type Config struct {
 }
 
 var cfg = Config{
-	ListenAddr:  "127.0.0.1:8000",
+	ListenAddr:  "127.0.0.1:18000",
 	OpenBrowser: true,
 }
 
@@ -1267,6 +1267,18 @@ func main() {
 	os.MkdirAll(filepath.Join(dataDir, "data"), 0755)
 	os.MkdirAll(filepath.Join(dataDir, "logs"), 0755)
 
+	// 先确保 .env 存在（首次运行时创建），再 loadEnv 读取配置
+	envPath := filepath.Join(cfg.DataDir, ".env")
+	if _, err := os.Stat(envPath); os.IsNotExist(err) {
+		envContent := fmt.Sprintf(`# 星记 桌面版配置
+AUTH_USER=%s
+AUTH_PASS=%s
+LISTEN_ADDR=127.0.0.1:18000
+`, authUser, authPass)
+		os.WriteFile(envPath, []byte(envContent), 0644)
+		log.Println("已创建 .env 配置文件")
+	}
+
 	loadEnv()
 
 	logFile, err := os.OpenFile(filepath.Join(dataDir, "logs", "server.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
@@ -1279,17 +1291,6 @@ func main() {
 		log.Fatalf("数据库初始化失败: %v", err)
 	}
 	log.Println("数据库初始化成功")
-
-	envPath := filepath.Join(cfg.DataDir, ".env")
-	if _, err := os.Stat(envPath); os.IsNotExist(err) {
-		envContent := fmt.Sprintf(`# 星记 桌面版配置
-AUTH_USER=%s
-AUTH_PASS=%s
-LISTEN_ADDR=127.0.0.1:18000
-`, authUser, authPass)
-		os.WriteFile(envPath, []byte(envContent), 0644)
-		log.Println("已创建 .env 配置文件")
-	}
 
 	mux := http.NewServeMux()
 
