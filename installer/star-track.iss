@@ -31,7 +31,7 @@ SetupIconFile=icon.ico
 Name: "chinesesimp"; MessagesFile: "ChineseSimplified.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "在桌面创建快捷方式"; GroupDescription: "附加选项:"; Flags: checked
+Name: "desktopicon"; Description: "在桌面创建快捷方式"; GroupDescription: "附加选项:"
 
 [Files]
 Source: "star-track-desktop.exe"; DestDir: "{app}"; Flags: ignoreversion
