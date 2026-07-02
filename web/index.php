@@ -53,6 +53,7 @@
             </div>
 
             <!-- 星空总览（右侧，全部任务） -->
+            <div id="zone-resizer" class="zone-resizer"></div>
             <div id="constellation-zone" class="mobile-hidden"></div>
 
             <!-- 类型图例（固定底部右侧） -->

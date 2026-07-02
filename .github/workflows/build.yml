@@ -129,7 +129,7 @@ jobs:
 
             ### 下载方式（二选一）
 
-            **① `星记-Setup.exe` — 安装版（推荐普通用户）**
+            **① `StarTrack-Setup.exe` — 安装版（推荐普通用户）**
             - 标准安装向导，自选安装目录 → 自动创建桌面快捷方式
             - 数据直接放在所选目录下（exe 同路径）
             - 卸载可在控制面板进行
@@ -152,5 +152,5 @@ jobs:
             ### 更新说明
             - 详见仓库提交记录。
           files: |
-            星记-Setup.exe
+            StarTrack-Setup.exe
             star-track-desktop.exe

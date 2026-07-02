@@ -51,27 +51,28 @@ func generateIconBytes() []byte {
 	return ico.Bytes()
 }
 
-// drawStarIcon 绘制星记托盘图标：纯黑底 + 亮色新月 + 金星
+// drawStarIcon 绘制星记托盘图标
+// 设计：深蓝灰底 + 亮色新月 + 金星，适用于深色/浅色两种任务栏背景
 func drawStarIcon(size int) image.Image {
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
 
-	// 纯黑不透明背景
-	bg := color.RGBA{0, 0, 0, 255}
+	// 深蓝灰不透明背景（在浅色和深色任务栏上都有足够对比度）
+	bg := color.RGBA{25, 35, 55, 255}
 	for y := 0; y < size; y++ {
 		for x := 0; x < size; x++ {
 			img.Set(x, y, bg)
 		}
 	}
 
-	// 新月：亮圆 + 偏移黑圆裁出月牙
+	// 新月：亮圆 + 偏移裁切圆裁出月牙
 	cx := float64(size) * 0.40
 	cy := float64(size) * 0.50
-	r := float64(size) * 0.32
+	r := float64(size) * 0.35
 
-	moon := color.RGBA{255, 235, 180, 255}
-	cx2 := cx + r*0.5
-	cy2 := cy - r*0.25
-	r2 := r * 0.85
+	moon := color.RGBA{255, 240, 190, 255}
+	cx2 := cx + r*0.45
+	cy2 := cy - r*0.2
+	r2 := r * 0.82
 
 	for y := 0; y < size; y++ {
 		for x := 0; x < size; x++ {
@@ -87,12 +88,12 @@ func drawStarIcon(size int) image.Image {
 		}
 	}
 
-	// 金色星星（右上角）
-	starX := int(float64(size) * 0.72)
+	// 金色星星（右上角区域）
+	starX := int(float64(size) * 0.75)
 	starY := int(float64(size) * 0.28)
-	starR := size / 8
-	if starR < 1 {
-		starR = 1
+	starR := size / 7
+	if starR < 2 {
+		starR = 2
 	}
 	star := color.RGBA{255, 200, 60, 255}
 	for y := starY - starR; y <= starY+starR; y++ {
