@@ -58,6 +58,26 @@ var cfg = Config{
 	OpenBrowser: true,
 }
 
+// 允许的任务类型
+var allowedTaskTypes = map[string]bool{
+	"self": true, "family": true, "money": true,
+	"sport": true, "love": true, "study": true,
+}
+
+// 静态文件 MIME 类型映射
+var mimeTypes = map[string]string{
+	".css":   "text/css; charset=utf-8",
+	".js":    "application/javascript",
+	".svg":   "image/svg+xml",
+	".woff2": "font/woff2",
+	".woff":  "font/woff",
+	".png":   "image/png",
+	".jpg":   "image/jpeg",
+	".jpeg":  "image/jpeg",
+	".gif":   "image/gif",
+	".ico":   "image/x-icon",
+}
+
 // ---------------------------------------------------------------------------
 // 工具函数
 // ---------------------------------------------------------------------------
@@ -95,7 +115,7 @@ func loadEnv() {
 	}
 }
 
-func base64URLEncode(src []byte) string {
+func encodeHex(src []byte) string {
 	return hex.EncodeToString(src)
 }
 
@@ -105,7 +125,7 @@ func createToken(username string) (string, error) {
 	payload := fmt.Sprintf(`{"sub":"%s","iat":%d,"exp":%d}`, username, now, now+86400*7)
 
 	b64 := func(b []byte) string {
-		return strings.TrimRight(base64URLEncode(b), "=")
+		return strings.TrimRight(encodeHex(b), "=")
 	}
 
 	headerB64 := b64([]byte(header))
@@ -123,7 +143,7 @@ func verifyToken(token string) (string, bool) {
 		return "", false
 	}
 	sig := sha256.Sum256([]byte(parts[0] + "." + parts[1] + string(jwtSecret)))
-	expected := base64URLEncode(sig[:])
+	expected := encodeHex(sig[:])
 	if parts[2] != expected {
 		return "", false
 	}
@@ -462,8 +482,7 @@ func handleAddTodo(w http.ResponseWriter, r *http.Request) {
 	if taskType == "" {
 		taskType = "self"
 	}
-	allowedTypes := map[string]bool{"self": true, "family": true, "money": true, "sport": true, "love": true, "study": true}
-	if !allowedTypes[taskType] {
+	if !allowedTaskTypes[taskType] {
 		taskType = "self"
 	}
 
@@ -496,7 +515,10 @@ func handleAddTodo(w http.ResponseWriter, r *http.Request) {
 
 	if parentID != nil {
 		var count int
-		db.QueryRow("SELECT COUNT(*) FROM todos WHERE id = ?", *parentID).Scan(&count)
+		if err := db.QueryRow("SELECT COUNT(*) FROM todos WHERE id = ?", *parentID).Scan(&count); err != nil {
+			jsonError(w, "查询父任务失败", http.StatusInternalServerError)
+			return
+		}
 		if count == 0 {
 			jsonError(w, "父任务不存在", http.StatusBadRequest)
 			return
@@ -544,8 +566,6 @@ func handleUpdateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allowedTypes := map[string]bool{"self": true, "family": true, "money": true, "sport": true, "love": true, "study": true}
-
 	var setClauses []string
 	var args []interface{}
 
@@ -553,7 +573,7 @@ func handleUpdateTodo(w http.ResponseWriter, r *http.Request) {
 		setClauses = append(setClauses, "title = ?")
 		args = append(args, *data.Title)
 	}
-	if data.TaskType != nil && allowedTypes[*data.TaskType] {
+	if data.TaskType != nil && allowedTaskTypes[*data.TaskType] {
 		setClauses = append(setClauses, "task_type = ?")
 		args = append(args, *data.TaskType)
 	}
@@ -584,17 +604,31 @@ func handleUpdateTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	args = append(args, data.ID)
-	_, err := db.Exec("UPDATE todos SET "+strings.Join(setClauses, ", ")+" WHERE id = ?", args...)
+	tx, err := db.Begin()
 	if err != nil {
+		jsonError(w, "事务启动失败", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("UPDATE todos SET "+strings.Join(setClauses, ", ")+" WHERE id = ?", args...); err != nil {
 		jsonError(w, "更新失败", http.StatusBadRequest)
 		return
 	}
 
 	if data.Progress != nil {
 		today := time.Now().Format("2006-01-02")
-		db.Exec(`INSERT INTO progress_log (todo_id, log_date, progress) VALUES (?, ?, ?)
+		if _, err := tx.Exec(`INSERT INTO progress_log (todo_id, log_date, progress) VALUES (?, ?, ?)
 			ON CONFLICT(todo_id, log_date) DO UPDATE SET progress = excluded.progress`,
-			data.ID, today, *data.Progress)
+			data.ID, today, *data.Progress); err != nil {
+			jsonError(w, "记录进度失败", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		jsonError(w, "事务提交失败", http.StatusInternalServerError)
+		return
 	}
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -628,9 +662,23 @@ func handleCompleteTodo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	tx, err := db.Begin()
+	if err != nil {
+		jsonError(w, "事务启动失败", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
 	var completed int
 	var parentID sql.NullInt64
-	db.QueryRow("SELECT completed, parent_id FROM todos WHERE id = ?", id).Scan(&completed, &parentID)
+	if err := tx.QueryRow("SELECT completed, parent_id FROM todos WHERE id = ?", id).Scan(&completed, &parentID); err != nil {
+		if err == sql.ErrNoRows {
+			jsonError(w, "任务不存在", http.StatusBadRequest)
+		} else {
+			jsonError(w, "查询任务失败", http.StatusInternalServerError)
+		}
+		return
+	}
 
 	newStatus := 0
 	if completed == 0 {
@@ -646,51 +694,90 @@ func handleCompleteTodo(w http.ResponseWriter, r *http.Request) {
 		progressVal = 100
 	}
 
-	db.Exec("UPDATE todos SET completed = ?, completed_at = ?, progress = ? WHERE id = ?",
-		newStatus, completedAt, progressVal, id)
+	if _, err := tx.Exec("UPDATE todos SET completed = ?, completed_at = ?, progress = ? WHERE id = ?",
+		newStatus, completedAt, progressVal, id); err != nil {
+		jsonError(w, "更新任务状态失败", http.StatusInternalServerError)
+		return
+	}
 
 	logDate := completedDate
 	if newStatus == 0 {
 		logDate = time.Now().Format("2006-01-02")
 	}
-	db.Exec(`INSERT INTO progress_log (todo_id, log_date, progress) VALUES (?, ?, ?)
+	if _, err := tx.Exec(`INSERT INTO progress_log (todo_id, log_date, progress) VALUES (?, ?, ?)
 		ON CONFLICT(todo_id, log_date) DO UPDATE SET progress = excluded.progress`,
-		id, logDate, progressVal)
+		id, logDate, progressVal); err != nil {
+		jsonError(w, "记录进度日志失败", http.StatusInternalServerError)
+		return
+	}
 
 	completedIDs := []int{id}
 
 	if newStatus == 1 && completeChildren {
-		rows, _ := db.Query("SELECT id FROM todos WHERE parent_id = ? AND completed = 0", id)
-		if rows != nil {
-			defer rows.Close()
-			for rows.Next() {
-				var cid int
-				rows.Scan(&cid)
-				db.Exec("UPDATE todos SET completed = 1, completed_at = ?, progress = 100 WHERE id = ?", completedAt, cid)
-				db.Exec(`INSERT INTO progress_log (todo_id, log_date, progress) VALUES (?, ?, ?)
-					ON CONFLICT(todo_id, log_date) DO UPDATE SET progress = excluded.progress`,
-					cid, logDate, 100)
-				completedIDs = append(completedIDs, cid)
-			}
+		rows, err := tx.Query("SELECT id FROM todos WHERE parent_id = ? AND completed = 0", id)
+		if err != nil {
+			jsonError(w, "查询子任务失败", http.StatusInternalServerError)
+			return
 		}
+		for rows.Next() {
+			var cid int
+			if err := rows.Scan(&cid); err != nil {
+				rows.Close()
+				jsonError(w, "读取子任务失败", http.StatusInternalServerError)
+				return
+			}
+			if _, err := tx.Exec("UPDATE todos SET completed = 1, completed_at = ?, progress = 100 WHERE id = ?", completedAt, cid); err != nil {
+				rows.Close()
+				jsonError(w, "更新子任务失败", http.StatusInternalServerError)
+				return
+			}
+			if _, err := tx.Exec(`INSERT INTO progress_log (todo_id, log_date, progress) VALUES (?, ?, ?)
+				ON CONFLICT(todo_id, log_date) DO UPDATE SET progress = excluded.progress`,
+				cid, logDate, 100); err != nil {
+				rows.Close()
+				jsonError(w, "记录子任务进度失败", http.StatusInternalServerError)
+				return
+			}
+			completedIDs = append(completedIDs, cid)
+		}
+		rows.Close()
 	}
 
 	if newStatus == 1 && parentID.Valid {
 		pid := int(parentID.Int64)
-		var total, done int
-		db.QueryRow("SELECT COUNT(*), SUM(completed) FROM todos WHERE parent_id = ?", pid).Scan(&total, &done)
+		var total int
+		var doneSum sql.NullInt64
+		if err := tx.QueryRow("SELECT COUNT(*), SUM(completed) FROM todos WHERE parent_id = ?", pid).Scan(&total, &doneSum); err != nil {
+			jsonError(w, "查询父任务子项失败", http.StatusInternalServerError)
+			return
+		}
+		done := 0
+		if doneSum.Valid {
+			done = int(doneSum.Int64)
+		}
 		parentProgress := 0
 		if total > 0 {
 			parentProgress = (done / total) * 100
 		}
-		db.Exec(`INSERT INTO progress_log (todo_id, log_date, progress) VALUES (?, ?, ?)
+		if _, err := tx.Exec(`INSERT INTO progress_log (todo_id, log_date, progress) VALUES (?, ?, ?)
 			ON CONFLICT(todo_id, log_date) DO UPDATE SET progress = excluded.progress`,
-			pid, logDate, parentProgress)
+			pid, logDate, parentProgress); err != nil {
+			jsonError(w, "记录父任务进度失败", http.StatusInternalServerError)
+			return
+		}
 		if total > 0 && total == done {
-			db.Exec("UPDATE todos SET completed = 1, completed_at = ?, progress = 100 WHERE id = ?",
-				completedDate+" "+time.Now().Format("15:04:05"), pid)
+			if _, err := tx.Exec("UPDATE todos SET completed = 1, completed_at = ?, progress = 100 WHERE id = ?",
+				completedDate+" "+time.Now().Format("15:04:05"), pid); err != nil {
+				jsonError(w, "更新父任务状态失败", http.StatusInternalServerError)
+				return
+			}
 			completedIDs = append(completedIDs, pid)
 		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		jsonError(w, "事务提交失败", http.StatusInternalServerError)
+		return
 	}
 
 	isCompleted := newStatus == 1
@@ -822,7 +909,9 @@ func handleGetHistory(w http.ResponseWriter, r *http.Request) {
 		var pid sql.NullInt64
 		var dd, sd, ca sql.NullString
 		var pg sql.NullInt64
-		rows.Scan(&item.ID, &item.Title, &item.TaskType, &pid, &dd, &sd, &ca, &pg)
+		if err := rows.Scan(&item.ID, &item.Title, &item.TaskType, &pid, &dd, &sd, &ca, &pg); err != nil {
+			continue
+		}
 		if pid.Valid {
 			v := int(pid.Int64)
 			item.ParentID = &v
@@ -869,8 +958,10 @@ func handleGetHistory(w http.ResponseWriter, r *http.Request) {
 		var progressLogs []ProgressEntry
 		for logRows.Next() {
 			var pe ProgressEntry
-			logRows.Scan(&pe.TodoID, &pe.LogDate, &pe.Progress,
-				&pe.Title, &pe.TaskType, &pe.ParentID, &pe.DueDate, &pe.StartDate, &pe.Completed, &pe.CompletedAt)
+			if err := logRows.Scan(&pe.TodoID, &pe.LogDate, &pe.Progress,
+				&pe.Title, &pe.TaskType, &pe.ParentID, &pe.DueDate, &pe.StartDate, &pe.Completed, &pe.CompletedAt); err != nil {
+				continue
+			}
 			progressLogs = append(progressLogs, pe)
 		}
 
@@ -991,7 +1082,9 @@ func handleGetTimeline(w http.ResponseWriter, r *http.Request) {
 	schedule := map[string][]string{}
 	for rows.Next() {
 		var todoID, hour int
-		rows.Scan(&todoID, &hour)
+		if err := rows.Scan(&todoID, &hour); err != nil {
+			continue
+		}
 		h := strconv.Itoa(hour)
 		schedule[h] = append(schedule[h], strconv.Itoa(todoID))
 	}
@@ -1031,7 +1124,10 @@ func handleSaveTimeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var count int
-	db.QueryRow("SELECT COUNT(*) FROM todos WHERE id = ?", todoID).Scan(&count)
+	if err := db.QueryRow("SELECT COUNT(*) FROM todos WHERE id = ?", todoID).Scan(&count); err != nil {
+		jsonError(w, "查询任务失败", http.StatusInternalServerError)
+		return
+	}
 	if count == 0 {
 		jsonError(w, "任务不存在", http.StatusBadRequest)
 		return
@@ -1101,7 +1197,9 @@ func handleExportCSV(w http.ResponseWriter, r *http.Request) {
 		var parentID sql.NullInt64
 		var dueDate, startDate, completedAt sql.NullString
 		var progress sql.NullInt64
-		rows.Scan(&id, &title, &taskType, &parentID, &dueDate, &startDate, &completedAt, &progress)
+		if err := rows.Scan(&id, &title, &taskType, &parentID, &dueDate, &startDate, &completedAt, &progress); err != nil {
+			continue
+		}
 
 		completedDate := ""
 		if completedAt.Valid && len(completedAt.String) >= 10 {
@@ -1163,24 +1261,8 @@ func handlePage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	contentType := "text/html; charset=utf-8"
-	if strings.HasSuffix(path, ".css") {
-		contentType = "text/css; charset=utf-8"
-	} else if strings.HasSuffix(path, ".js") {
-		contentType = "application/javascript"
-	} else if strings.HasSuffix(path, ".svg") {
-		contentType = "image/svg+xml"
-	} else if strings.HasSuffix(path, ".woff2") {
-		contentType = "font/woff2"
-	} else if strings.HasSuffix(path, ".woff") {
-		contentType = "font/woff"
-	} else if strings.HasSuffix(path, ".png") {
-		contentType = "image/png"
-	} else if strings.HasSuffix(path, ".jpg") || strings.HasSuffix(path, ".jpeg") {
-		contentType = "image/jpeg"
-	} else if strings.HasSuffix(path, ".gif") {
-		contentType = "image/gif"
-	} else if strings.HasSuffix(path, ".ico") {
-		contentType = "image/x-icon"
+	if t, ok := mimeTypes[filepath.Ext(path)]; ok {
+		contentType = t
 	}
 
 	w.Header().Set("Content-Type", contentType)
@@ -1259,6 +1341,20 @@ func resolveDataDir() string {
 }
 
 func main() {
+	// 定时清理过期的 nonce，防内存泄漏
+	go func() {
+		for range time.Tick(10 * time.Minute) {
+			mu.Lock()
+			now := time.Now()
+			for k, v := range nonceStore {
+				if now.After(v) {
+					delete(nonceStore, k)
+				}
+			}
+			mu.Unlock()
+		}
+	}()
+
 	dataDir := resolveDataDir()
 	cfg.AppDir = dataDir
 	cfg.DataDir = dataDir
@@ -1267,16 +1363,36 @@ func main() {
 	os.MkdirAll(filepath.Join(dataDir, "data"), 0755)
 	os.MkdirAll(filepath.Join(dataDir, "logs"), 0755)
 
-	// 先确保 .env 存在（首次运行时创建），再 loadEnv 读取配置
+	// .env 处理：首次运行创建默认配置；若 .env 消失但数据库已存在则生成随机密码
 	envPath := filepath.Join(cfg.DataDir, ".env")
 	if _, err := os.Stat(envPath); os.IsNotExist(err) {
-		envContent := fmt.Sprintf(`# 星记 桌面版配置
+		dbPath := filepath.Join(cfg.DataDir, "data", "todo.db")
+		if _, dbErr := os.Stat(dbPath); dbErr == nil {
+			// 数据库已存在但 .env 消失，生成随机密码防静默回退
+			buf := make([]byte, 8)
+			rand.Read(buf)
+			authPass = hex.EncodeToString(buf)
+			envContent := fmt.Sprintf(`# 星记 桌面版配置
+# 注意：.env 文件曾缺失，密码已重新生成，请查看日志
 AUTH_USER=%s
 AUTH_PASS=%s
 LISTEN_ADDR=127.0.0.1:18000
 `, authUser, authPass)
-		os.WriteFile(envPath, []byte(envContent), 0644)
-		log.Println("已创建 .env 配置文件")
+			os.WriteFile(envPath, []byte(envContent), 0644)
+			log.Printf("╔══════════════════════════════════╗")
+			log.Printf("║ .env 缺失！已重新生成配置文件")
+			log.Printf("║ 用户名: %s", authUser)
+			log.Printf("║ 新密码: %s", authPass)
+			log.Printf("╚══════════════════════════════════╝")
+		} else {
+			envContent := fmt.Sprintf(`# 星记 桌面版配置
+AUTH_USER=%s
+AUTH_PASS=%s
+LISTEN_ADDR=127.0.0.1:18000
+`, authUser, authPass)
+			os.WriteFile(envPath, []byte(envContent), 0644)
+			log.Println("已创建 .env 配置文件")
+		}
 	}
 
 	loadEnv()
