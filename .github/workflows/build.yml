@@ -112,7 +112,7 @@ jobs:
       - name: 下载中文语言包
         shell: pwsh
         run: |
-          $url = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/ChineseSimplified.isl"
+          $url = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl"
           Invoke-WebRequest -Uri $url -OutFile installer\ChineseSimplified.isl
 
       - name: 编译安装包
