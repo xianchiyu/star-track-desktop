@@ -2,6 +2,10 @@
 
 > 把你的日常待办化作星空。
 
+<p align="center">
+  <img src="web/img/screenshot-main.png" width="700">
+</p>
+
 ## 下载与使用
 
 GitHub Release 提供两种产物，按需选择：
@@ -58,6 +62,12 @@ AUTH_PASS=你的密码
 - **安装版**：控制面板 → 程序和功能 → 卸载「星记」（会一并清理 exe 同路径的 `data/`、`logs/`、`.env`，如需保留请先备份 `data/todo.db`）
 - **绿色版**：直接删除 exe 同路径的整个目录
 
+## 更多截图
+
+![星史台历](web/img/screenshot-calendar.png)
+
+![任务详情面板](web/img/screenshot-detail.png)
+
 ## 构建方法
 
 需要安装 Go 1.21+。本地编译：
@@ -80,20 +90,21 @@ CI 自动构建见 `.github/workflows/build.yml`，push tag `v*` 触发。
 | 层级 | 技术 |
 |------|------|
 | 后端 | Go + modernc.org/sqlite |
-| 前端 | 原生 PHP/JavaScript/CSS |
+| 前端 | 原生 JavaScript/CSS |
 | 认证 | JWT（nonce 挑战 + SHA256 哈希） |
 | 打包 | `embed` 静态资源嵌入 + Inno Setup 安装包 |
 
 ## 功能清单
 
-- 四象限任务视图
-- 六大星球分类（自我/学习/运动/赚钱/家庭/恋爱）
+- 今日星空双栏视图：时间轴 + 星座总览
+- 六大星球分类（自我 / 学习 / 运动 / 赚钱 / 家庭 / 恋爱）
 - 多级子任务 + 进度自动聚合
 - 手动拖拽进度条
 - 时间轴预约（按小时槽位安排）
-- 暗色/亮色双主题
-- 星史台历（历史完成记录）
-- CSV 导出
+- 暗色 / 亮色双主题
+- 星史台历（历史完成记录，支持按日查看）
+- CSV 导出（按月范围导出已完成任务）
+- 任务详情面板（编辑标题、类型、日期、进度）
 
 ## 与 PHP 版的区别
 
