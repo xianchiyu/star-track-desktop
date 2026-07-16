@@ -105,7 +105,7 @@ async function apiFetch(url, options = {}) {
     const res = await fetch(url, options);
     if (res.status === 401) {
         localStorage.removeItem('star-track-token');
-        window.location.href = 'login.php';
+        window.location.href = 'login.html';
         throw new Error('未登录');
     }
     return res;
@@ -113,7 +113,7 @@ async function apiFetch(url, options = {}) {
 
 async function loadTodos() {
     try {
-        const res = await apiFetch('api/get_todos.php');
+        const res = await apiFetch('api/get_todos');
         const data = await res.json();
         if (data.success) {
             todos = data.todos;
@@ -125,7 +125,7 @@ async function loadTodos() {
 
 async function loadHistory() {
     try {
-        const res = await apiFetch('api/get_history.php');
+        const res = await apiFetch('api/get_history');
         const data = await res.json();
         if (data.success) {
             historyData = data.history;
@@ -140,7 +140,7 @@ async function apiAddTodo(data) {
     Object.entries(data).forEach(([k, v]) => {
         if (v !== null && v !== undefined && v !== '') formData.append(k, v);
     });
-    const res = await apiFetch('api/add_todo.php', { method: 'POST', body: formData });
+    const res = await apiFetch('api/add_todo', { method: 'POST', body: formData });
     return res.json();
 }
 
@@ -149,19 +149,19 @@ async function apiCompleteTodo(id, completedDate, completeChildren) {
     formData.append('id', id);
     if (completedDate) formData.append('completed_date', completedDate);
     if (completeChildren) formData.append('complete_children', '1');
-    const res = await apiFetch('api/complete_todo.php', { method: 'POST', body: formData });
+    const res = await apiFetch('api/complete_todo', { method: 'POST', body: formData });
     return res.json();
 }
 
 async function apiDeleteTodo(id) {
     const formData = new FormData();
     formData.append('id', id);
-    const res = await apiFetch('api/delete_todo.php', { method: 'POST', body: formData });
+    const res = await apiFetch('api/delete_todo', { method: 'POST', body: formData });
     return res.json();
 }
 
 async function apiUpdateTodo(id, data) {
-    const res = await apiFetch('api/update_todo.php', {
+    const res = await apiFetch('api/update_todo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...data })
@@ -275,7 +275,7 @@ async function addToSchedule(hour, todoId) {
         fd.append('todo_id', todoId);
         fd.append('slot_date', getTodayStr());
         fd.append('slot_hour', hour);
-        await apiFetch('api/save_timeline.php', { method: 'POST', body: fd });
+        await apiFetch('api/save_timeline', { method: 'POST', body: fd });
     } catch (e) {
         console.error('同步时间轴失败:', e);
     }
@@ -298,7 +298,7 @@ async function removeFromSchedule(hour, todoId) {
         fd.append('todo_id', todoId);
         fd.append('slot_date', getTodayStr());
         fd.append('slot_hour', hour);
-        await apiFetch('api/save_timeline.php', { method: 'POST', body: fd });
+        await apiFetch('api/save_timeline', { method: 'POST', body: fd });
     } catch (e) {
         console.error('同步时间轴失败:', e);
     }
@@ -339,7 +339,7 @@ async function loadSchedule() {
 
     // 再从服务器拉取最新数据
     try {
-        const res = await apiFetch('api/get_timeline.php?date=' + getTodayStr());
+        const res = await apiFetch('api/get_timeline?date=' + getTodayStr());
         const data = await res.json();
         if (data.success && data.schedule) {
             schedule = data.schedule;
@@ -1289,7 +1289,7 @@ async function onChildReorder(parentId, draggedId, targetId, position) {
     currentOrder.splice(insertIdx, 0, draggedId);
 
     try {
-        await apiFetch('api/reorder_todos.php', {
+        await apiFetch('api/reorder_todos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ parent_id: parentId, order: currentOrder })
@@ -1408,7 +1408,7 @@ function bindEvents() {
     // 登出
     document.getElementById('btnLogout').addEventListener('click', async () => {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-        await fetch('api/auth.php', {
+        await fetch('api/auth', {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfToken || ''},
             body: 'action=logout'
@@ -1416,7 +1416,7 @@ function bindEvents() {
         // 清除 token
         localStorage.removeItem('star-track-token');
         document.querySelector('meta[name="csrf-token"]').content = '';
-        window.location.href = 'login.php';
+        window.location.href = 'login.html';
     });
 
     // 详情面板关闭
@@ -1522,7 +1522,7 @@ function bindEvents() {
 
             // 直接用浏览器下载，带 cookie
             const a = document.createElement('a');
-            a.href = `api/export_csv.php?from=${from}&to=${to}`;
+            a.href = `api/export_csv?from=${from}&to=${to}`;
             a.download = `star-track-${from}-to-${to}.csv`;
             document.body.appendChild(a);
             a.click();

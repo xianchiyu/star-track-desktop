@@ -174,7 +174,7 @@ func extractToken(r *http.Request) string {
 	if t != "" {
 		return t
 	}
-	// 从 form body 取（auth.php 的 logout）
+	// 从 form body 取（auth 的 logout）
 	t = r.FormValue("csrf_token")
 	return t
 }
@@ -1241,10 +1241,10 @@ func handleExportCSV(w http.ResponseWriter, r *http.Request) {
 
 func handlePage(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
-	if path == "/" || path == "/index.php" || path == "/index" {
-		path = "/index.php"
-	} else if path == "/login.php" || path == "/login" {
-		path = "/login.php"
+	if path == "/" || path == "/index" {
+		path = "/index.html"
+	} else if path == "/login" {
+		path = "/login.html"
 	}
 
 	subFS, err := fs.Sub(webFS, "web")
@@ -1266,37 +1266,7 @@ func handlePage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", contentType)
-
-	if strings.HasSuffix(path, ".php") {
-		content := string(data)
-		content = removePHPTags(content)
-		w.Write([]byte(content))
-	} else {
-		w.Write(data)
-	}
-}
-
-func removePHPTags(s string) string {
-	var result strings.Builder
-	i := 0
-	for i < len(s) {
-		phpStart := strings.Index(s[i:], "<?php")
-		if phpStart == -1 {
-			result.WriteString(s[i:])
-			break
-		}
-		result.WriteString(s[i : i+phpStart])
-		phpEnd := strings.Index(s[i+phpStart:], "?>")
-		if phpEnd == -1 {
-			break
-		}
-		phpContent := s[i+phpStart : i+phpStart+phpEnd+2]
-		if strings.Contains(phpContent, "getCsrfToken") || strings.Contains(phpContent, "csrf_token") {
-			result.WriteString(`<meta name="csrf-token" content="">`)
-		}
-		i += phpStart + phpEnd + 2
-	}
-	return result.String()
+	w.Write(data)
 }
 
 // ---------------------------------------------------------------------------
@@ -1411,20 +1381,20 @@ LISTEN_ADDR=127.0.0.1:18000
 	mux := http.NewServeMux()
 
 	// Auth 是公开端点（challenge 和 login 不需要认证）
-	mux.HandleFunc("/api/auth.php", handleAuth)
+	mux.HandleFunc("/api/auth", handleAuth)
 
 	// 需要认证的 API
 	authAPIs := map[string]http.HandlerFunc{
-		"/api/get_todos.php":       handleGetTodos,
-		"/api/get_history.php":     handleGetHistory,
-		"/api/add_todo.php":        handleAddTodo,
-		"/api/update_todo.php":     handleUpdateTodo,
-		"/api/complete_todo.php":   handleCompleteTodo,
-		"/api/delete_todo.php":     handleDeleteTodo,
-		"/api/reorder_todos.php":   handleReorderTodos,
-		"/api/get_timeline.php":    handleGetTimeline,
-		"/api/save_timeline.php":   handleSaveTimeline,
-		"/api/export_csv.php":      handleExportCSV,
+		"/api/get_todos":       handleGetTodos,
+		"/api/get_history":     handleGetHistory,
+		"/api/add_todo":        handleAddTodo,
+		"/api/update_todo":     handleUpdateTodo,
+		"/api/complete_todo":   handleCompleteTodo,
+		"/api/delete_todo":     handleDeleteTodo,
+		"/api/reorder_todos":   handleReorderTodos,
+		"/api/get_timeline":    handleGetTimeline,
+		"/api/save_timeline":   handleSaveTimeline,
+		"/api/export_csv":      handleExportCSV,
 	}
 
 	for path, handler := range authAPIs {
