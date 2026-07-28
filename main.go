@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"mime"
 	"net"
 	"net/http"
 	"os"
@@ -62,20 +63,6 @@ var cfg = Config{
 var allowedTaskTypes = map[string]bool{
 	"self": true, "family": true, "money": true,
 	"sport": true, "love": true, "study": true,
-}
-
-// 静态文件 MIME 类型映射
-var mimeTypes = map[string]string{
-	".css":   "text/css; charset=utf-8",
-	".js":    "application/javascript",
-	".svg":   "image/svg+xml",
-	".woff2": "font/woff2",
-	".woff":  "font/woff",
-	".png":   "image/png",
-	".jpg":   "image/jpeg",
-	".jpeg":  "image/jpeg",
-	".gif":   "image/gif",
-	".ico":   "image/x-icon",
 }
 
 // ---------------------------------------------------------------------------
@@ -1261,8 +1248,10 @@ func handlePage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	contentType := "text/html; charset=utf-8"
-	if t, ok := mimeTypes[filepath.Ext(path)]; ok {
-		contentType = t
+	if ext := filepath.Ext(path); ext != "" {
+		if t := mime.TypeByExtension(ext); t != "" {
+			contentType = t
+		}
 	}
 
 	w.Header().Set("Content-Type", contentType)
