@@ -1276,6 +1276,18 @@ func openBrowser(url string) {
 	cmd.Start()
 }
 
+// alertDialog 弹出系统对话框提示错误信息（跨平台）
+func alertDialog(title, message string) {
+	switch runtime.GOOS {
+	case "windows":
+		exec.Command("cmd", "/c", "msg", "*", "/time:0", message).Run()
+	case "darwin":
+		exec.Command("osascript", "-e", `display dialog "`+message+`" buttons {"OK"} default button 1`).Run()
+	default:
+		// Linux 无统一弹窗命令，仅记录日志
+	}
+}
+
 // ---------------------------------------------------------------------------
 // - 主入口
 // ---------------------------------------------------------------------------
@@ -1442,7 +1454,10 @@ LISTEN_ADDR=127.0.0.1:18000
 
 	listener, err := net.Listen("tcp", cfg.ListenAddr)
 	if err != nil {
-		log.Fatalf("端口 %s 启动失败: %v", cfg.ListenAddr, err)
+		msg := fmt.Sprintf("星记启动失败：端口 %s 被占用，请检查是否有其他实例正在运行。", cfg.ListenAddr)
+		log.Println(msg)
+		alertDialog("星记", msg)
+		os.Exit(1)
 	}
 
 	actualAddr := listener.Addr().String()
