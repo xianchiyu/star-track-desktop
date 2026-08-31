@@ -1529,6 +1529,25 @@ function bindEvents() {
             document.body.removeChild(a);
             document.getElementById('exportDialog').classList.add('hidden');
         });
+
+        document.getElementById('exportJSON').addEventListener('click', () => {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            fetch('api/export_json', {
+                headers: { 'X-CSRF-Token': csrfToken || '' }
+            }).then(res => res.blob()).then(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const now = new Date();
+                const stamp = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0') + '-' + String(now.getHours()).padStart(2, '0') + String(now.getMinutes()).padStart(2, '0') + String(now.getSeconds()).padStart(2, '0');
+                a.download = `star-track-backup-${stamp}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                document.getElementById('exportDialog').classList.add('hidden');
+            }).catch(() => alert('导出失败，请重试'));
+        });
     }
 
     // 日历弹窗关闭

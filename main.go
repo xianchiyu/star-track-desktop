@@ -1026,6 +1026,123 @@ func handleExportCSV(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
+// - JSON 全量导出
+// ---------------------------------------------------------------------------
+
+func handleExportJSON(w http.ResponseWriter, r *http.Request) {
+	type todoRow struct {
+		ID          int     `json:"id"`
+		Title       string  `json:"title"`
+		TaskType    string  `json:"task_type"`
+		ParentID    *int    `json:"parent_id"`
+		SortOrder   int     `json:"sort_order"`
+		Progress    *int    `json:"progress"`
+		StartDate   *string `json:"start_date"`
+		DueDate     *string `json:"due_date"`
+		Completed   int     `json:"completed"`
+		CompletedAt *string `json:"completed_at"`
+		CreatedAt   string  `json:"created_at"`
+	}
+	type progressRow struct {
+		ID        int    `json:"id"`
+		TodoID    int    `json:"todo_id"`
+		LogDate   string `json:"log_date"`
+		Progress  int    `json:"progress"`
+		CreatedAt string `json:"created_at"`
+	}
+	type timelineRow struct {
+		ID        int    `json:"id"`
+		TodoID    int    `json:"todo_id"`
+		SlotDate  string `json:"slot_date"`
+		SlotHour  int    `json:"slot_hour"`
+		CreatedAt string `json:"created_at"`
+	}
+
+	backup := struct {
+		Version      string        `json:"version"`
+		ExportedAt   string        `json:"exported_at"`
+		Todos        []todoRow     `json:"todos"`
+		ProgressLogs []progressRow `json:"progress_logs"`
+		Timeline     []timelineRow `json:"timeline"`
+	}{
+		Version:    "1.0",
+		ExportedAt: time.Now().Format("2006-01-02 15:04:05"),
+	}
+
+	rows, err := db.Query(`SELECT id, title, task_type, parent_id, sort_order, progress, start_date, due_date, completed, completed_at, created_at FROM todos`)
+	if err != nil {
+		jsonError(w, "导出失败", http.StatusInternalServerError)
+		return
+	}
+	for rows.Next() {
+		var t todoRow
+		var pid sql.NullInt64
+		var pg sql.NullInt64
+		var sd, dd, ca sql.NullString
+		if err := rows.Scan(&t.ID, &t.Title, &t.TaskType, &pid, &t.SortOrder, &pg, &sd, &dd, &t.Completed, &ca, &t.CreatedAt); err != nil {
+			rows.Close()
+			jsonError(w, "导出失败", http.StatusInternalServerError)
+			return
+		}
+		if pid.Valid {
+			v := int(pid.Int64)
+			t.ParentID = &v
+		}
+		if pg.Valid {
+			v := int(pg.Int64)
+			t.Progress = &v
+		}
+		if sd.Valid {
+			t.StartDate = &sd.String
+		}
+		if dd.Valid {
+			t.DueDate = &dd.String
+		}
+		if ca.Valid {
+			t.CompletedAt = &ca.String
+		}
+		backup.Todos = append(backup.Todos, t)
+	}
+	rows.Close()
+
+	rows, err = db.Query(`SELECT id, todo_id, log_date, progress, created_at FROM progress_log`)
+	if err != nil {
+		jsonError(w, "导出失败", http.StatusInternalServerError)
+		return
+	}
+	for rows.Next() {
+		var p progressRow
+		if err := rows.Scan(&p.ID, &p.TodoID, &p.LogDate, &p.Progress, &p.CreatedAt); err != nil {
+			rows.Close()
+			jsonError(w, "导出失败", http.StatusInternalServerError)
+			return
+		}
+		backup.ProgressLogs = append(backup.ProgressLogs, p)
+	}
+	rows.Close()
+
+	rows, err = db.Query(`SELECT id, todo_id, slot_date, slot_hour, created_at FROM timeline_slots`)
+	if err != nil {
+		jsonError(w, "导出失败", http.StatusInternalServerError)
+		return
+	}
+	for rows.Next() {
+		var s timelineRow
+		if err := rows.Scan(&s.ID, &s.TodoID, &s.SlotDate, &s.SlotHour, &s.CreatedAt); err != nil {
+			rows.Close()
+			jsonError(w, "导出失败", http.StatusInternalServerError)
+			return
+		}
+		backup.Timeline = append(backup.Timeline, s)
+	}
+	rows.Close()
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="star-track-backup-%s.json"`, time.Now().Format("20060102-150405")))
+	json.NewEncoder(w).Encode(backup)
+}
+
+// ---------------------------------------------------------------------------
 // - 静态文件服务
 // ---------------------------------------------------------------------------
 
@@ -1180,6 +1297,7 @@ LISTEN_ADDR=127.0.0.1:18000
 		"/api/get_timeline":    handleGetTimeline,
 		"/api/save_timeline":   handleSaveTimeline,
 		"/api/export_csv":      handleExportCSV,
+		"/api/export_json":     handleExportJSON,
 	}
 
 	for path, handler := range authAPIs {
