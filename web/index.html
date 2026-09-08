@@ -105,10 +105,10 @@
             </div>
         </div>
 
-        <!-- 导出弹窗（仅电脑端） -->
+        <!-- 数据备份弹窗（仅电脑端） -->
         <div id="exportDialog" class="export-dialog hidden">
             <div class="export-dialog-card">
-                <h4><i class="bi bi-download"></i> 导出</h4>
+                <h4><i class="bi bi-download"></i> 数据备份</h4>
                 <div class="export-dialog-row">
                     <label>起始月</label>
                     <input type="month" id="exportFrom">
@@ -121,7 +121,9 @@
                     <button class="btn-cancel" id="exportCancel">取消</button>
                     <button class="btn-export" id="exportConfirm">导出 CSV</button>
                     <button class="btn-export" id="exportJSON" title="导出全部数据为 JSON 备份">导出 JSON 备份</button>
+                    <button class="btn-export" id="importJSON" title="从 JSON 备份恢复（覆盖现有数据）">导入备份</button>
                 </div>
+                <input type="file" id="importFileInput" accept=".json" style="display:none">
             </div>
         </div>
 

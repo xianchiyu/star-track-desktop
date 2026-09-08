@@ -1548,6 +1548,41 @@ function bindEvents() {
                 document.getElementById('exportDialog').classList.add('hidden');
             }).catch(() => alert('导出失败，请重试'));
         });
+
+        // 导入 JSON 备份（覆盖式）
+        const importBtn = document.getElementById('importJSON');
+        const importInput = document.getElementById('importFileInput');
+        if (importBtn && importInput) {
+            importBtn.addEventListener('click', () => importInput.click());
+            importInput.addEventListener('change', async () => {
+                const file = importInput.files[0];
+                if (!file) return;
+                if (!confirm('导入将覆盖现有全部数据，且无法撤销。\n\n建议先导出一份 JSON 备份再继续。\n\n确定继续吗？')) {
+                    importInput.value = '';
+                    return;
+                }
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                const fd = new FormData();
+                fd.append('file', file);
+                try {
+                    const res = await fetch('api/import_json', {
+                        method: 'POST',
+                        headers: { 'X-CSRF-Token': csrfToken || '' },
+                        body: fd
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert(`导入成功：${data.data.todos} 个任务、${data.data.progress} 条进度、${data.data.timeline} 条时间轴`);
+                        location.reload();
+                    } else {
+                        alert(data.error || '导入失败');
+                    }
+                } catch (e) {
+                    alert('导入失败，请重试');
+                }
+                importInput.value = '';
+            });
+        }
     }
 
     // 日历弹窗关闭
