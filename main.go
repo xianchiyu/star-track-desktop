@@ -52,7 +52,9 @@ func loadEnv() {
 	if err != nil {
 		return
 	}
-	for _, line := range strings.Split(string(data), "\n") {
+	lines := strings.Split(string(data), "\n")
+	migrated := false
+	for i, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -65,10 +67,23 @@ func loadEnv() {
 			case "AUTH_USER":
 				authUser = v
 			case "AUTH_PASS":
-				authPass = v
+				if isHexHash(v) {
+					// 已是哈希存储
+					authPassHash = v
+				} else {
+					// 明文密码：迁移为哈希并写回 .env
+					authPassHash = hashPassword(v)
+					lines[i] = "AUTH_PASS=" + authPassHash
+					migrated = true
+				}
 			case "LISTEN_ADDR":
 				cfg.ListenAddr = v
 			}
+		}
+	}
+	if migrated {
+		if err := os.WriteFile(filepath.Join(cfg.DataDir, ".env"), []byte(strings.Join(lines, "\n")), 0644); err == nil {
+			log.Println("检测到明文密码，已自动迁移为哈希存储")
 		}
 	}
 }
@@ -841,28 +856,29 @@ func main() {
 	if _, err := os.Stat(envPath); os.IsNotExist(err) {
 		dbPath := filepath.Join(cfg.DataDir, "data", "todo.db")
 		if _, dbErr := os.Stat(dbPath); dbErr == nil {
-			// 数据库已存在但 .env 消失，生成随机密码防静默回退
+			// 数据库已存在但 .env 消失，生成随机密码防静默回退（.env 只存哈希，明文仅打印到日志一次）
 			buf := make([]byte, 8)
 			rand.Read(buf)
-			authPass = hex.EncodeToString(buf)
+			newPass := hex.EncodeToString(buf)
 			envContent := fmt.Sprintf(`# 星记 桌面版配置
 # 注意：.env 文件曾缺失，密码已重新生成，请查看日志
 AUTH_USER=%s
 AUTH_PASS=%s
 LISTEN_ADDR=127.0.0.1:18000
-`, authUser, authPass)
+`, authUser, hashPassword(newPass))
 			os.WriteFile(envPath, []byte(envContent), 0644)
 			log.Printf("╔══════════════════════════════════╗")
 			log.Printf("║ .env 缺失！已重新生成配置文件")
 			log.Printf("║ 用户名: %s", authUser)
-			log.Printf("║ 新密码: %s", authPass)
+			log.Printf("║ 新密码: %s（仅此次显示，请尽快登录后修改）", newPass)
 			log.Printf("╚══════════════════════════════════╝")
 		} else {
 			envContent := fmt.Sprintf(`# 星记 桌面版配置
+# AUTH_PASS 存储的是密码的 SHA256 哈希，修改密码时直接填新密码明文即可，启动时会自动转换
 AUTH_USER=%s
 AUTH_PASS=%s
 LISTEN_ADDR=127.0.0.1:18000
-`, authUser, authPass)
+`, authUser, authPassHash)
 			os.WriteFile(envPath, []byte(envContent), 0644)
 			log.Println("已创建 .env 配置文件")
 		}

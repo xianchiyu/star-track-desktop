@@ -17,13 +17,28 @@ import (
 // ---------------------------------------------------------------------------
 
 var (
-	authUser   = "pilot"
-	authPass   = "startrack"
-	secretKey  string
-	jwtSecret  []byte
-	mu         sync.Mutex
-	nonceStore = map[string]time.Time{}
+	authUser     = "pilot"
+	authPassHash = hashPassword("startrack") // 只存哈希，不存明文
+	secretKey    string
+	jwtSecret    []byte
+	mu           sync.Mutex
+	nonceStore   = map[string]time.Time{}
 )
+
+// hashPassword 返回密码的 SHA256 十六进制
+func hashPassword(pass string) string {
+	sum := sha256.Sum256([]byte(pass))
+	return hex.EncodeToString(sum[:])
+}
+
+// isHexHash 判断是否为 64 位十六进制（即已哈希的密码）
+func isHexHash(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	_, err := hex.DecodeString(s)
+	return err == nil
+}
 
 func init() {
 	buf := make([]byte, 32)
@@ -170,7 +185,7 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		expected := sha256.Sum256([]byte(nonce + authPass))
+		expected := sha256.Sum256([]byte(nonce + authPassHash))
 		expectedHash := hex.EncodeToString(expected[:])
 
 		if user == authUser && clientHash == expectedHash {

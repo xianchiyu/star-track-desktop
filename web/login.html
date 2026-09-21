@@ -195,8 +195,9 @@
                 const nonceData = await nonceRes.json();
                 if (!nonceData.nonce) throw new Error('无法获取验证令牌');
 
-                // 2. 客户端哈希：SHA256(nonce + password)
-                const hash = await sha256(nonceData.nonce + pass);
+                // 2. 客户端哈希：SHA256(nonce + SHA256(password))，与后端存储的密码哈希配合
+                const passHash = await sha256(pass);
+                const hash = await sha256(nonceData.nonce + passHash);
 
                 // 3. 发送哈希（带 nonce）
                 const loginRes = await fetch('api/auth', {
