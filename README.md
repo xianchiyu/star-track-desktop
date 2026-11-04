@@ -3,7 +3,7 @@
 > 把你的日常待办化作星空。
 
 <p align="center">
-  <img src="web/img/screenshot-main.png" width="700">
+  <img src="docs/screenshots/screenshot-main.png" width="700">
 </p>
 
 ## 下载与使用
@@ -86,9 +86,9 @@ AUTH_PASS=你的新密码
 
 ## 更多截图
 
-![星史台历](web/img/screenshot-calendar.png)
+![星史台历](docs/screenshots/screenshot-calendar.png)
 
-![任务详情面板](web/img/screenshot-detail.png)
+![任务详情面板](docs/screenshots/screenshot-detail.png)
 
 ## 构建方法
 

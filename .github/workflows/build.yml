@@ -132,7 +132,7 @@ jobs:
           Write-Host "资源文件已生成: resource.syso"
 
       - name: 编译
-        run: go build -ldflags="-H windowsgui" -o star-track-desktop.exe
+        run: go build -ldflags="-s -w -H windowsgui" -o star-track-desktop.exe
 
       - name: 安装 Inno Setup
         shell: pwsh
